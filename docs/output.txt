@@ -1,0 +1,795 @@
+ESCUELA TECNOLÓGICA INSTITUTO TÉCNICO CENTRAL (ETITC)
+Facultad de Sistemas
+Tecnología en Desarrollo de Software (Nocturno)
+ROSALOPZManager
+Autores 
+Jefrey Nicolas Román Palacios 
+Joseth Stiven Sanchez Suarez
+Presentado a
+Ing. Sandra Johana Guerrero Gómez
+Bogotá DC, 28 de mayo de 2025
+Tabla de Contenido
+Planteamiento del Problema5
+Justificación5
+Objetivos6
+Objetivo General6
+Objetivos Específicos6
+Marco Teórico6
+1.Introducción6
+2.Digitalización y Automatización en la Gestión Empresarial6
+3.Sistemas de Planificación de Recursos Empresariales7
+4.Conceptos Claves7
+5.Vigilancia Tecnológica14
+Comparación entre ROSALOPZManager y Softland14
+Alcance16
+Hipótesis17
+Variables del Proyecto17
+Variable Independiente17
+Variables Dependientes17
+Recolección de Datos17
+Instrumento de Recolección de Datos17
+Encuesta realizada y compartida18
+Escalas de Medición18
+Validez y Confiabilidad18
+Codificación y Análisis18
+Aspectos Éticos19
+Análisis de Datos19
+1.Frecuencia de errores en sueldos por cargo19
+Tabla Dinámica19
+Gráfica20
+Conclusiones20
+2.Frecuencia de errores en sueldos por cargo20
+Tabla Dinámica21
+Gráfica21
+Conclusiones21
+3.Frecuencia de Confusión de Tareas por Cargo22
+Tabla Dinámica22
+Gráfica23
+Conclusiones23
+4.Disposición a usar ROSALOPZManager23
+Tabla Dinámica24
+Gráfica24
+Conclusiones24
+5.Claridad en la Asignación de Tareas por Cargo25
+Tabla Dinámica25
+Gráfica26
+Conclusiones26
+6.Estado del Control de Inventario27
+Tabla Dinámica27
+Gráfica27
+Conclusiones28
+7.Frecuencia de Retrasos por Falta de Materiales28
+Tabla Dinámica28
+Gráfica29
+Conclusiones29
+Conclusión del Análisis de Datos30
+Implementación de ROSALOPZManager30
+Metodología31
+Fases de la Metodología31
+Fase 1 – Planeación31
+1.1.Reuniones con los Usuarios32
+1.2.Identificación de los Requerimientos33
+1.3.Definición de las Historias de Usuario35
+Fase 2 - Diseño38
+2.1.Diseño de la Base de Datos38
+2.2.Diseño de las Interfaces de Usuario41
+2.3.Diseño de Flujo del Sistema45
+2.4.Diseño de Diagramas46
+Fase 3 – Codificación57
+3.1.Definición de Entorno de Desarrollo58
+3.2.Desarrollo del Sistema58
+Bibliografía60
+Planteamiento del Problema 
+¿De qué manera la implementación de un sistema web automatizado puede mejorar la eficiencia operativa de la fábrica de calzado Bufalo R.P.?
+La fábrica de calzado Bufalo R.P., en Bogotá D.C., gestiona manualmente sus nóminas, tareas e inventarios con libretas y vales de cobro, lo que genera errores, duplicidad de registros y dificulta el acceso a información clave. Esta falta de digitalización provoca cálculos salariales incorrectos, retrasos en inventarios y desorganización en la asignación de tareas, afectando la toma de decisiones y la eficiencia operativa.
+Para solucionar esto, se propone ROSALOPZManager, una plataforma web basada en HTML, CSS, JavaScript y PostgreSQL, que automatizará estos procesos, reducirá errores y optimizará la gestión. Esto beneficiará tanto a administradores como empleados, mejorando la precisión, transparencia y productividad de la empresa.
+Justificación 
+La digitalización de la gestión de nóminas, tareas e inventarios en Bufalo R.P. es clave para mejorar la eficiencia, reducir errores y optimizar la administración. Actualmente, el manejo manual genera retrasos en sueldos, desorganización y falta de control en inventarios, afectando la productividad y toma de decisiones.
+La implementación de ROSALOPZManager , una plataforma web desarrollada en HTML, CSS, JavaScript y PostgreSQL, automatizará estos procesos, mejorando la precisión y optimizando la administración. Este sistema permitirá un acceso rápido a la información, garantizará pagos puntuales, facilitará el control de inventarios y optimizará la asignación de tareas. Además, generará reportes en tiempo real para una mejor toma de decisiones, reduciendo la carga administrativa y fortaleciendo el crecimiento de la empresa.
+Objetivos 
+Objetivo General
+Desarrollar un sistema web para digitalizar nóminas, tareas e inventarios en la fábrica de calzado Bufalo R.P., con el propósito de mejorar la eficiencia operativa, minimizando errores y facilitar la toma de decisiones informadas.
+Objetivos Específicos 
+Implementar un módulo de nómina automatizado que permita calcular sueldos, registrar pagos y almacenar la información en una base de datos PostgreSQL, eliminando errores y agilizando el proceso de pago a empleados.
+Desarrollar un sistema de gestión de inventarios que registre el ingreso y salida de materiales, genere alertas de stock y facilite el control en tiempo real, optimizando la planificación de producción.
+Crear un módulo de asignación y seguimiento de tareas que permita a los jefes distribuir actividades entre los empleados, registrar su cumplimiento y generar reportes automáticos para mejorar la supervisión y productividad.
+Marco Teórico 
+Introducción 
+El marco teórico de esta investigación busca explicar por qué es importante usar la tecnología en la gestión diaria de empresas manufactureras, como la fábrica de calzado Bufalo R.P. Se estudiarán ideas sobre automatización, sistemas de información y manejo de recursos. Revisar lo que ya se sabe sobre este tema nos ayudará a entender cómo la tecnología puede hacer que las empresas trabajen de manera más eficiente y cometan menos errores.
+Digitalización y Automatización en la Gestión Empresarial
+La digitalización y la automatización de procesos son fundamentales para optimizar las operaciones empresariales en la era de la Industria 4.0. La digitalización implica la conversión de procesos analógicos en digitales, lo que permite una mayor eficiencia, velocidad y calidad en la producción. Esta transformación facilita la recopilación y análisis de datos en tiempo real, mejorando la toma de decisiones estratégicas y la adaptabilidad al mercado. (Geprom, 2024)
+Por otro lado, la automatización de procesos consiste en el uso de tecnologías para ejecutar tareas repetitivas sin intervención humana, lo que incrementa la productividad y reduce los costos operativos. Al implementar sistemas automatizados, las empresas pueden optimizar la asignación de recursos, garantizar la continuidad operativa y mejorar la calidad de sus productos o servicios. (SAP, Automatización de procesos: la clave para la eficiencia, 2024)
+La integración de estas tecnologías no solo mejora la eficiencia operativa, sino que también aumenta la competitividad empresarial al permitir una respuesta más ágil a las demandas del mercado. Además, la digitalización y la automatización contribuyen a la sostenibilidad al reducir el consumo de recursos y minimizar errores humanos.
+Sistemas de Planificación de Recursos Empresariales
+Los sistemas de información empresarial, especialmente los sistemas de planificación de recursos empresariales (ERP), desempeñan un papel crucial en la gestión eficiente de diversas áreas dentro de las organizaciones manufactureras. Estos sistemas integran funciones esenciales como finanzas, recursos humanos, producción y gestión de inventarios, proporcionando una visión unificada y en tiempo real de las operaciones empresariales. (SAP, ¿Qué es ERP?, 2024)
+Además, los sistemas ERP facilitan la gestión de recursos humanos al automatizar procesos como la nómina, el seguimiento de asistencia y la evaluación del desempeño. Esto no solo reduce errores humanos, sino que también libera tiempo para que el personal de recursos humanos se enfoque en actividades estratégicas, mejorando la productividad general de la organización. (Velneo, 2025)
+Conceptos Claves 
+Base de datos
+Definición
+Una base de datos será el corazón de tu sistema web. Es el lugar donde se guardará toda la información pertinente, tales como:
+Información de los trabajadores: Nombres, documentos, puestos, sueldos, trayectoria laboral, entre otros.
+Información del sueldo: Cálculos de sueldos, deducciones, bonificaciones, pagos efectuados, entre otros.
+Tareas cumplidas: Descripciones de las tareas, personal asignado, fechas de comienzo y término, entre otros.
+Inventarios: Productos en inventario, proveedores, volúmenes, costos, entre otros.
+ Clasificaciones de las bases de datos:
+Relacionales: Son las más habituales y emplean tablas para ordenar los datos. Casos prácticos: MySQL, PostgreSQL, SQL Server.
+No relacionales: Son más adaptables y escalables, perfectos para manejar grandes cantidades de información. Algunas alternativas: MongoDB, Cassandra.
+ Conceptos para tener en cuenta al seleccionar una base de datos:
+Dimensiones de la base de datos: ¿Qué cantidad de información se guardará?
+Tipo de datos: ¿Qué clase de datos se guardará (numéricos, escritos, imágenes)?
+Velocidad de acceso: ¿Cuál es la rapidez requerida para obtener los datos?
+Escalabilidad: ¿Será posible expandir la base de datos junto al negocio?
+Seguridad: ¿Qué acciones de seguridad se necesitan para salvaguardar la información?
+(concepto.de, 2024)
+Aplicación web
+Definición
+Una aplicación web es una herramienta esencial para tu proyecto. Es mediante esta que los usuarios (trabajadores, gestores) se relacionarán con la base de datos.
+ Características de la aplicación en línea:
+Manejo de la nómina: Estimación automática de salarios, creación de informes, abonos electrónicos.
+Registro de tareas: Asignación de responsabilidades, monitoreo del avance, elaboración de reportes.
+Control de inventarios: Documentación de las entradas y salidas de mercancías, creación de alertas de escasez de inventario.
+Acceso a datos personales: Los trabajadores tendrán la posibilidad de acceder a su información personal y laboral.
+Informaciones y documentos: Creación de informes a medida para la toma de decisiones.
+(amazon.com, 2024)
+El Calzado
+Definición
+Esta industria, una de las más antiguas y globalizadas, abarca el diseño, producción, distribución y venta de variados modelos de calzado destinados a distintos públicos (hombres, mujeres, niños, atletas, entre otros). La demanda se ve motivada por elementos como la moda, el modo de vida, la funcionalidad y la comodidad.
+ Clases de Zapatos:
+Zapatos deportivos: Concentrados en el desempeño, la comodidad y el respaldo para actividades físicas particulares como correr, entrenar o practicar deportes.
+Calzado de gala: Principalmente empleado en contextos profesionales o ceremoniales, donde la elegancia y la estética son esenciales.
+Calzado casual: Creado para el uso cotidiano, donde la comodidad es el elemento principal.
+Calzado especializado: Incorpora zapatos laborales con propiedades de seguridad.
+ Procesos de Producción de Calzado:
+Diseño: Inicia con el diseño y la creación de un prototipo, a menudo utilizando software CAD para planificar las dimensiones y características del calzado.
+Corte y preparación: El material, ya sea cuero, tela u otros, se corta en las formas y patrones necesarios. En esta fase, las máquinas y trabajadores especializados preparan las piezas que conformarán el zapato.
+Montaje y acabado: Las partes cortadas (como la suela, el empeine y los forros) se ensamblan y cosen. La automatización de esta parte del proceso ha permitido mejorar la eficiencia y la precisión en la producción.
+Control de calidad: Cada producto pasa por una fase de control de calidad para asegurarse de que cumple con los estándares de fabricación y diseño.
+(Orús, 2024)
+HTML (Hypertext Markup Language)
+ Definición
+HTML se define como el lenguaje estándar empleado para la creación y organización del contenido de una página web. Actúa como el fundamento de toda aplicación en línea, suministrando la estructura y el contenido (texto, imágenes, vídeos, formularios, etc.) que el navegador web procesa y presenta a los usuarios.
+ Características fundamentales:
+Estructura del documento: HTML estructura el contenido en una jerarquía de componentes (etiquetas), en la que cada componente cumple una función determinada, tal como <header>, <section>, <article>, <footer>, entre otros. Esto facilita la organización de las páginas de forma lógica y semántica.
+Semántica: Gracias a la implementación de HTML5, se han incorporado nuevas etiquetas semánticas que optimizan la accesibilidad y la organización de los documentos, tales como <article>, <aside>, <figure>, <nav>, entre otros.
+Multimedia: HTML5 también soporta componentes multimedia como video (<video>) y audio (<audio>), lo que facilita la incorporación directa de estos recursos sin la necesidad de añadir complementos extra como Flash.
+Formularios: Los formularios en HTML (<form>) facilitan la interacción del usuario con la aplicación en línea, recogiendo información tales como nombre, email, etc.
+(MDN, HTML: Lenguaje de etiquetas de hipertexto, 2024)
+CSS (Cascading Style Sheets)
+ Definición
+CSS es un lenguaje de programación empleado para establecer el estilo visual de los documentos HTML. Facilita la gestión de la presentación y el diseño de los sitios web, considerando elementos como los colores, las fuentes, los márgenes, los espaciados y la disposición de componentes.
+ Características fundamentales:
+Diseño: CSS se emplea para estructurar la manera en que se exhibirán los componentes HTML en la pantalla. Características como display, flexbox y grid facilitan la creación de layouts complejos y responsivos que se ajustan a distintos dispositivos.
+Design Responsivo: CSS facilita la adaptación de las páginas a diversos tamaños de pantalla, garantizando una experiencia de usuario excelente tanto en ordenadores de escritorio como en aparatos móviles. Es vital para un sistema web que será empleado por diversas personas, en diferentes dispositivos, en el interior de la fábrica.
+Estilos visuales: CSS establece el estilo visual de los componentes, tales como los colores (color, color de fondos), las fuentes (font-family, font-size), los bordes (border), entre otros, proporcionando uniformidad a la interfaz de usuario.
+Animaciones y Transiciones: CSS facilita la incorporación de transiciones y animaciones que potencian la experiencia del usuario al interactuar con la página.
+(MDN, CSS, 2024)
+JavaScript
+ Definición
+JavaScript es un lenguaje de codificación que opera en el navegador web y facilita la incorporación de interactividad y dinamismo en las páginas HTML. Además de HTML y CSS, JavaScript es una de las tecnologías fundamentales en el desarrollo web, facilitando la creación de aplicaciones web dinámicas y de respuesta.
+ Características fundamentales
+Manejo del DOM (Modelo de Elementos Documentales): JavaScript tiene la capacidad de acceder y modificar los componentes del documento HTML en tiempo real, facilitando la creación de interfaces dinámicas, como la actualización de la lista de existencias sin tener que recargar la página.
+Verificación de Formularios: Previo a enviar la información al servidor, JavaScript tiene la capacidad de verificar los campos del formulario (como comprobar que el email es válido) con el objetivo de optimizar la experiencia del usuario y prevenir fallos.
+AJAX: Mediante AJAX (Asynchronous JavaScript and XML), JavaScript facilita el envío y recepción de datos del servidor de forma asíncrona, lo que potencia la rapidez y fluidez de las aplicaciones web. Por ejemplo, es posible actualizar el inventario o revisar las nóminas sin que la página se recargara completamente.
+Frameworks y Librerías: JavaScript cuenta con numerosas librerías y frameworks famosos como React, Vue.js, Angular, jQuery, entre otros, que simplifican la creación de aplicaciones web actuales y escalables.
+Eventos e Interactividad: JavaScript tiene la capacidad de identificar sucesos (tales como pulsaciones de botones, pulsaciones de teclas, modificaciones en los campos de formularios) y responder a estos, lo cual es esencial para desarrollar interfaces interactivas.
+(Slotnisky, 2022)
+Sistema de Gestión Digitalizado
+ Definición 
+Un sistema de gestión digitalizado es una plataforma tecnológica que integra procesos y funciones con el fin de mejorar la eficiencia operativa dentro de una organización. Este sistema permite centralizar la información y optimizar la toma de decisiones al facilitar el acceso a datos en tiempo real, alineando áreas administrativas y operativas .
+ Características
+Automatización: Los procesos se realizan automáticamente, reduciendo la intervención manual y los errores.
+Centralización de datos: Se recopilan y almacenan datos en un solo lugar, facilitando su acceso y gestión.
+Acceso remoto: Permite a los usuarios acceder a la plataforma desde cualquier lugar, aumentando la flexibilidad.
+Seguridad: Implementa medidas de seguridad para proteger la información sensible.
+Escalabilidad: Capacidad de adaptarse a las necesidades cambiantes de la organización a medida que crece .
+ Beneficios
+Mejora la eficiencia operativa al optimizar procesos.
+Reduce errores en la gestión de datos.
+Aumenta la productividad al liberar tiempo y recursos.
+Mejora la toma de decisiones gracias a la disponibilidad de información actualizada .
+(Zirquit, 2022)
+Gestión de Nóminas
+ Definición 
+La gestión de nóminas es el proceso de cálculo y pago de sueldos y beneficios a los empleados, asegurando que se cumplan todas las normativas laborales y fiscales .
+ Características
+Cálculo de salarios: Determinación precisa de las remuneraciones basadas en horas trabajadas y tasas acordadas.
+Deducciones: Cálculo de impuestos y contribuciones a la seguridad social.
+Beneficios: Inclusión de bonificaciones y otros incentivos.
+Pagos: Procesamiento oportuno de los pagos a los empleados .
+ Beneficios
+Garantiza la precisión y puntualidad en los pagos, lo que fortalece la confianza del empleado.
+Reduce errores en los cálculos de nómina, minimizando disputas laborales.
+Mejora la satisfacción del empleado al garantizar que los beneficios se calculen y distribuyan correctamente .
+(Personio, 2022)
+Gestión de Inventarios
+ Definición 
+La gestión de inventarios se refiere al control y administración de materiales y productos en una organización, garantizando que haya un equilibrio entre la oferta y la demanda .
+ Características
+Registro de entradas y salidas: Seguimiento preciso de los movimientos de inventario.
+Control de stock: Monitoreo de los niveles de existencias para evitar desabastecimientos o excesos.
+Seguimiento de ubicaciones: Identificación de la ubicación de cada producto en el almacén.
+Gestión de pedidos: Coordinación de las solicitudes de reabastecimiento .
+ Beneficios
+Reduce el riesgo de desabastecimiento o exceso de stock, lo que puede afectar la producción.
+Mejora la planificación de la producción, asegurando que los materiales estén disponibles cuando se necesiten.
+Reduce costos relacionados con la gestión de inventarios y mejora la eficiencia operativa .
+(IBM, 2024)
+Vigilancia Tecnológica
+Comparación entre ROSALOPZManager y Softland
+ROSALOPZManager es un sistema en desarrollo destinado a mejorar la gestión de nóminas, tareas e inventarios en la fábrica de calzado Bufalo R.P. En contraste, Softland es un software ERP (Sistemas de Planificación de Recursos Empresariales) ampliamente utilizado en diversas empresas de Colombia, ofreciendo soluciones integrales para la gestión empresarial.
+Enfoque y Adaptabilidad:
+ROSALOPZManager se diseñará específicamente para las necesidades de Bufalo R.P., priorizando la eficiencia y la usabilidad para el personal de la fábrica. Su objetivo es simplificar procesos manuales, integrando herramientas digitales que se adapten a la cultura y operación de la empresa.
+Softland, aunque es un sistema robusto, está diseñado para una amplia gama de industrias. Esto puede resultar en una menor adaptabilidad a las necesidades específicas de una empresa más pequeña como Bufalo R.P. Su enfoque integral a menudo requiere personalización, lo que puede ser un desafío para empresas con menos recursos técnicos.
+Tecnología y Escalabilidad:
+ROSALOPZManager se desarrollará utilizando tecnologías modernas como HTML, CSS, JavaScript y PostgreSQL, lo que facilitará su implementación y escalabilidad a medida que la empresa crezca. La digitalización de procesos clave permitirá una rápida adaptación a los cambios del mercado y una mejora continua.
+Softland emplea tecnologías consolidadas y robustas, ofreciendo una variedad de funcionalidades. Sin embargo, su complejidad técnica puede limitar su escalabilidad para empresas que no tienen el mismo nivel de soporte técnico.
+Costos y Accesibilidad:
+ROSALOPZManager pretende ser una solución más accesible en términos de costos. Al ser desarrollado internamente y adaptado a las necesidades de Bufalo R.P., se busca minimizar los gastos relacionados con licencias y mantenimiento que suelen estar asociados con software comercial como Softland.
+Softland, al ser un software ERP establecido, puede conllevar costos elevados en términos de licencias, implementación y formación del personal. Esto puede ser un obstáculo para empresas más pequeñas que buscan optimizar sus operaciones sin incurrir en altos gastos.
+Facilidad de Uso:
+ROSALOPZManager se centrará en ofrecer una interfaz intuitiva, facilitando su uso por parte de todos los empleados, independientemente de su nivel de familiaridad con la tecnología. Esto contribuirá a una rápida adopción del sistema dentro de la empresa.
+Softland puede ser más complicado de utilizar debido a su amplia gama de funcionalidades. La capacitación necesaria para los empleados puede ser extensa, lo que puede ralentizar el proceso de implementación.
+Soporte y Actualizaciones:
+ROSALOPZManager tendrá la ventaja de contar con soporte interno directo, lo que permitirá ajustes rápidos y actualizaciones basadas en el feedback de los usuarios. Esta cercanía con los empleados puede mejorar la experiencia general del sistema.
+Softland ofrece un soporte técnico profesional, pero la dependencia de un proveedor externo puede resultar en tiempos de respuesta más lentos para solucionar problemas o implementar cambios.
+ROSALOPZManager busca satisfacer las necesidades específicas de Bufalo R.P. con un enfoque adaptado y costos reducidos, mientras que Softland proporciona una solución ERP más generalizada que, aunque completa, puede ser excesiva y menos flexible para una empresa más pequeña. Al final, la elección entre ambos dependerá de las necesidades específicas y los recursos disponibles de cada empresa.
+Tomado de: https://d2sbaogcozkhdh.cloudfront.net/assets/prod/uploads/220-softland-erp-comercial-solucion-de-software-para-empresas-comerciales-y-de-distribucion
+Link de Softland: https://softland.com.co/
+Alcance
+El presente proyecto tiene como objetivo el desarrollo de una plataforma digital llamada ROSALOPZManager, orientada a optimizar la gestión administrativa en la fábrica de calzado Bufalo R.P. Inicialmente, el sistema estará enfocado en cubrir procesos clave como la gestión de nómina, control de inventarios y asignación de tareas dentro de esta empresa específica. No obstante, se proyecta que, tras su implementación y validación local, la plataforma pueda escalarse a otras fábricas del sector calzado, e incluso adaptarse a las necesidades de empresas manufactureras de diferentes áreas productivas, ajustando sus funcionalidades a cada contexto.
+Hipótesis
+La implementación de una plataforma digital de gestión como ROSALOPZManager en la fábrica Bufalo R.P. mejorará significativamente la eficiencia administrativa, reduciendo errores en nómina, optimizando el control de inventarios y mejorando la organización de las tareas, en comparación con los procesos manuales actuales.
+Variables del Proyecto
+Variable Independiente
+Uso de la plataforma digital ROSALOPZManager para la gestión administrativa en la fábrica de calzado Bufalo R.P. 
+Variables Dependientes
+Frecuencia de errores en la nómina.
+Tiempo que se tarda en hacer procesos administrativos.
+Organización y claridad en la asignación de tareas.
+Precisión en el control de inventarios.
+Nivel de satisfacción de los empleados con los procesos actuales.
+Recolección de Datos 
+Para el desarrollo del proyecto ROSALOPZManager, se utilizará una metodología cuantitativa, ya que permite medir de forma objetiva aspectos clave de la gestión actual en la fábrica de calzado Bufalo R.P., tales como la frecuencia de errores en nómina, tiempos de procesamiento manual, niveles de inventario y organización de tareas.
+Instrumento de Recolección de Datos
+Se diseñó un cuestionario estructurado compuesto por preguntas cerradas y escalas tipo Likert, dirigido a empleados y encargados administrativos de la fábrica. El cuestionario incluye secciones relacionadas con:
+Frecuencia de errores en la nómina.
+Tiempo de procesamiento manual.
+Problemas comunes en el control de inventarios.
+Nivel de organización y claridad en la asignación de tareas.
+Nivel de satisfacción con los procesos actuales.
+Familiaridad con herramientas digitales.
+Encuesta realizada y compartida 
+LINK: https://forms.office.com/r/0zYXNmbEdh
+Escalas de Medición 
+Se emplean escalas ordinales (como la de Likert de 1 a 5) para evaluar percepciones y niveles de eficiencia, así como opciones categóricas cerradas para medir experiencia laboral, frecuencia de errores y disposición a usar nuevas herramientas. Ejemplos:
+Escala de Likert (1 a 5) para medir eficiencia o satisfacción.
+Categorías como “Nunca / Rara vez / A veces / Frecuentemente / Siempre”.
+Respuestas binarias tipo “Sí / No”.
+Validez y Confiabilidad 
+Para garantizar la claridad y relevancia del cuestionario, se realizará una revisión interna cuidadosa, enfocada en asegurar que cada pregunta esté alineada con los objetivos del proyecto. Además, se planea aplicar el cuestionario piloto a un pequeño grupo de trabajadores, con el fin de identificar posibles dificultades de interpretación y ajustar el instrumento antes de su aplicación definitiva. Este proceso busca fortalecer la consistencia del instrumento.
+Codificación y Análisis
+Las respuestas serán codificadas numéricamente y analizadas con herramientas como Microsoft Excel, permitiendo realizar un análisis descriptivo mediante frecuencias, medias, modas y desviaciones estándar. Esto facilitará la identificación de áreas críticas que podrán ser mejoradas con la implementación del sistema propuesto.
+Aspectos Éticos
+Se respetará la confidencialidad y el anonimato de todos los participantes. Las respuestas no incluirán información personal identificable. Previamente a responder el cuestionario, se informará a cada persona que los datos serán utilizados únicamente con fines académicos y para el desarrollo del proyecto ROSALOPZManager. La participación será voluntaria.
+Análisis de Datos
+Para el desarrollo de este proyecto se aplicó una encuesta a los colaboradores de la fábrica Bufalo R.P., con el objetivo de obtener una visión detallada sobre los procesos administrativos, de nómina, asignación de tareas e inventario. Los datos recolectados fueron analizados utilizando herramientas de estadística descriptiva, apoyadas en tablas y gráficas dinámicas, lo cual permitió organizar y visualizar mejor la información.
+Las gráficas elaboradas permitieron identificar patrones y posibles áreas de mejora:
+Frecuencia de errores en sueldos por cargo
+Importancia: Identifica si ciertos cargos presentan más errores en la nómina que otros.
+Objetivo: Detectar patrones de fallos en el cálculo de sueldos según el rol del trabajador, para enfocar mejoras en el proceso de pago.
+Análisis esperado: Se espera observar si existen cargos con alta recurrencia de errores, lo que indicaría fallas específicas en el registro o cálculo de sueldos.
+Tabla Dinámica 
+Variables utilizadas: 
+Filas: Cargo del empleado
+Columnas: ¿Ha tenido errores en su sueldo?
+Valores: Conteo de respuestas (Conteo ID)
+Gráfica
+La gráfica utiliza barras apiladas horizontales para mostrar la frecuencia de errores en el cálculo de sueldos según el cargo (Operativo o Administrativo). En el eje vertical se presentan los cargos y en el eje horizontal el número de respuestas. Cada barra se divide por colores que representan la frecuencia de errores: azul para "A veces" y naranja para "Rara vez". El uso de barras apiladas permite comparar no solo cuántos errores se reportan por cargo, sino también la proporción de respuestas dentro de cada grupo, ofreciendo así una visión más detallada y clara del problema.
+Conclusiones
+Los resultados muestran que el área operativa reportó 6 casos con errores en los cálculos de sueldo (marcados como "A veces"), frente a solo 2 casos en el área administrativa. Esta diferencia indica que los procesos de nómina en el personal operativo son más vulnerables, seguramente porque se trabajan de forma más manual y sin una buena sistematización. Al no haber automatización, hay más riesgo de errores, lo que puede afectar la confianza de los trabajadores en que les paguen correctamente e incluso impactar en su motivación.
+El hecho de que ambos cargos (administrativo y operativo) hayan reportado fallos confirma que no es un tema aislado, sino un problema general. En total se registraron 8 casos con inconsistencias, lo que refuerza la necesidad de un sistema como ROSALOPZManager, que ayudaría a minimizar estos errores mediante cálculos automáticos, gestión histórica de registros y validaciones que reduzcan la dependencia de procesos manuales.
+Frecuencia de errores en sueldos por cargo
+Importancia: Muestra la percepción de eficiencia del sistema de nómina actual.
+Objetivo: Evaluar el nivel de satisfacción del personal con la gestión de pagos, para determinar si se requiere una intervención o rediseño del proceso.
+Análisis esperado: Identifica cargos con mayor insatisfacción o menor confianza en el proceso de pago.
+Tabla Dinámica 
+Variables utilizadas: 
+Filas: Cargo del empleado
+Valores: Promedio de calificación del proceso (en escala Likert de 1 a 5)
+Gráfica
+La gráfica utiliza columnas para mostrar la Evaluación del Proceso de Nómina según el cargo (Operativo o Administrativo). En el eje vertical se presentan el promedio en escala de 1 a 5 y en el eje horizontal los cargos. El formato de columnas simples facilita la comparación directa, destacando que área podría requerir mayor atención o mejor evaluación.
+Conclusiones
+Los resultados muestran que el personal administrativo calificó el proceso de nómina con 4.0/5, mientras que el operativo lo evaluó con 3.25/5. Esta brecha sugiere que los operativos perciben mayores fallos u opacidad en el sistema, posiblemente por su menor involucramiento directo en los procesos o falta de acceso a información clara sobre cálculos salariales. La diferencia resalta la necesidad de mejorar la transparencia y comunicación con este grupo.
+El hecho de que ninguna área alcance una calificación máxima (5/5) indica insatisfacción generalizada con el sistema actual. Implementar ROSALOPZManager podría resolver estas críticas mediante: Automatización para reducir errores, Transparencia en el cálculo de salarios, Acceso en tiempo real a información personal.
+Esto no solo mejoraría la percepción de equidad, sino también la confianza en la organización.
+Frecuencia de Confusión de Tareas por Cargo
+Importancia: Identifica qué cargos enfrentan más problemas de desorganización en tareas.
+Objetivo: Detectar fallos en la asignación y comunicación de tareas, y proponer mecanismos de mejora mediante la digitalización.
+Análisis esperado: Áreas con altos niveles de confusión podrían necesitar reorganización, capacitación o documentación de procesos.
+Tabla Dinámica 
+Variables utilizadas: 
+Filas: Cargo del empleado
+Columnas: ¿Con qué frecuencia se confunde en las tareas?
+Valores: Conteo de respuestas
+Gráfica
+La gráfica utiliza columnas agrupadas para mostrar la Frecuencia de Confusión o Duplicación de tareas por cargo (Operativo o Administrativo). En el eje vertical se presentan el conteo de respuestas y en el eje horizontal los cargos (Administrativo y Operativo). El formato de columnas agrupadas en 3D permiten comparar visualmente la frecuencia de respuestas entre cargos y categorías. Su diseño facilita identificar diferencias y hace la presentación más atractiva para informes o exposiciones.
+Conclusiones
+Los datos revelan que el área operativa acumula 8 casos de confusión en asignaciones laborales (5 bajo "A veces" y 3 en "Rara vez"), frente a solo 2 casos en el área administrativa (1 por categoría). Esta marcada diferencia expone una falta de estandarización en los procesos operativos, donde la asignación de tareas parece depender más de criterios improvisados que de protocolos definidos. La brecha sugiere que, mientras el personal administrativo trabaja con directrices claras, los operativos enfrentan mayor incertidumbre en sus funciones diarias.
+La recurrencia de confusiones en el área operativa (80% del total de casos) no solo refleja ineficiencias organizativas, sino que también genera riesgos operacionales: desde reprocesos hasta desmotivación del equipo. Implementar una herramienta digital de gestión de tareas (integrada al sistema ROSALOPZManager) permitiría: Automatizar la asignación de labores según roles, Notificar cambios en tiempo real, Documentar responsabilidades para evitar duplicidades.
+Esta solución abordaría el problema desde su raíz, transformando un proceso crítico y actualmente vulnerable en uno preciso y auditable.
+Disposición a usar ROSALOPZManager
+Importancia: Mide la apertura de los empleados a adoptar la nueva plataforma.
+Objetivo: Evaluar la aceptación del cambio tecnológico y preparar estrategias de implementación basadas en la disposición real.
+Análisis esperado: Medir la receptividad al cambio tecnológico por parte del personal.
+Tabla Dinámica 
+Variables utilizadas: 
+Filas: Cargo del empleado
+Columnas: ¿Estaría dispuesto a usar ROSALOPZManager?
+Valores: Conteo de respuestas
+Gráfica
+La gráfica utiliza barras apiladas horizontales para mostrar la Disposición a usar ROSALOPZManager según el cargo (Operativo o Administrativo). En el eje vertical se presentan los cargos y en el eje horizontal el número de respuestas. Cada barra se divide por colores que representan la disposición: azul para "Si" y naranja para "Tal vez". El uso de barras apiladas permite comparar no solo cuántos errores se reportan por cargo, sino también la proporción de respuestas dentro de cada grupo, ofreciendo así una visión más detallada y clara del problema.
+Conclusiones
+El personal administrativo muestra aceptación total a ROSALOPZManager (2/2 respuestas "Sí"), mientras que el área operativa presenta mayor diversidad de opiniones: 6 "Sí" frente a 2 "Tal vez". Esto revela: 
+Alto compromiso del equipo administrativo con la digitalización.
+Oportunidad de mejora en el área operativa, donde el 25% (2/8) aún duda.
+La disposición mayoritaria (87.5% combinado) valida el potencial de adopción del sistema ROSALOPZManager, pero sugiere necesidades específicas:
+Enfoque en operativos: Capacitaciones prácticas y demostraciones de beneficios directos para superar dudas ("Tal vez").
+Comunicación clara: Enfatizar cómo ROSALOPZManager resolverá sus problemas actuales (ej: errores de nómina).
+Claridad en la Asignación de Tareas por Cargo
+Importancia: Muestra si los trabajadores reciben instrucciones claras según su cargo.
+Objetivo: Determinar en qué áreas es necesario reforzar la comunicación y organización del trabajo diario con ayuda del sistema.
+Análisis esperado: Detectar posibles problemas de comunicación interna o liderazgo en ciertas áreas.
+Tabla Dinámica 
+Variables utilizadas: 
+Filas: Cargo del empleado
+Columnas: ¿Le asignan tareas claramente?
+Valores: Conteo de respuestas
+Gráfica
+La gráfica utiliza columnas agrupadas 3D para mostrar la Claridad en la Asignación de Tareas por cargo (Operativo o Administrativo). En el eje horizontal se presentan los cargos y en el eje vertical el número de respuestas. Cada barra tiene un color que representan la claridad: azul para "Algunas veces", naranja para "No" y gris para “Si”. El uso de columnas agrupadas en 3D permite comparar no solo cuántas respuestas se dieron por cargo, sino también la distribución de las percepciones sobre la claridad en la asignación de tareas, ofreciendo así una visión más detallada del contexto laboral.
+Conclusiones
+Los datos revelan una clara disparidad en la percepción de claridad en la asignación de tareas entre los cargos. Mientras el 100% del personal administrativo (2/2) respondió "Sí" a la claridad de sus tareas, en el área operativa solo 5 de 8 empleados (62.5%) compartieron esta percepción. Además, 3 operativos (37.5%) reportaron problemas (2 "Algunas veces" y 1 "No"), lo que evidencia una falta de estandarización en la comunicación de responsabilidades para este grupo. Esta brecha sugiere que los procesos actuales funcionan mejor para roles administrativos, pero son inconsistentes en niveles operativos.
+La implementación de ROSALOPZManager podría resolver estas deficiencias mediante:
+Asignaciones digitales con instrucciones detalladas,
+Alertas en tiempo real para cambios de tareas,
+Transparencia total para supervisores y equipos.
+Estado del Control de Inventario
+Importancia: Evalúa la percepción del personal sobre la actualización y precisión del inventario.
+Objetivo: Verificar si es necesario fortalecer el módulo de control de inventarios en la plataforma para mejorar la disponibilidad de materiales.
+Análisis esperado: Ayuda a identificar percepción positiva o negativa del sistema de inventario.
+Tabla Dinámica 
+Variables utilizadas: 
+Filas: ¿El inventario está actualizado y correcto?
+Valores: Conteo de respuestas
+Gráfica
+La gráfica muestra el Estado del Control de Inventario según la percepción de los encuestados. Está representada mediante un gráfico de pastel en 3D, el cual permite visualizar la proporción de respuestas de forma clara y directa. El gráfico se divide en dos secciones, correspondientes a las respuestas a la pregunta: ¿Considera que el control de inventario es adecuado, donde Naranja representa la respuesta "Sí" y Azul representa la respuesta "No". Este tipo de gráfico en 3D facilita la identificación inmediata de la mayoría de las respuestas y permite observar la diferencia porcentual entre ambas opiniones.
+Conclusiones
+Los resultados indican que el 80% de los encuestados (8/10) considera que el inventario está actualizado y correcto, mientras que el 20% (2/10) reporta inconsistencias. Aunque la percepción mayoritaria es positiva, las respuestas negativas revelan que puede haber errores puntuales pero significativos en el sistema actual.
+La existencia de un 20% de evaluaciones críticas (2/10) sobre la exactitud del inventario señala una oportunidad clave para optimizar el proceso. La implementación de ROSALOPZManager podría resolver estas fallas.
+Frecuencia de Retrasos por Falta de Materiales
+Importancia: Indica cuán frecuente es que la producción se detenga por fallos en el abastecimiento.
+Objetivo: Justificar la necesidad de integrar un sistema de alertas y control de insumos para evitar retrasos en la producción.
+Análisis esperado: Permite detectar si existen fallas en el abastecimiento interno que afecten la productividad. Una alta frecuencia de respuestas afirmativas indicaría deficiencias en la gestión del inventario y en la planeación de insumos.
+Tabla Dinámica 
+Variables utilizadas: 
+Filas: Cargo del empleado
+Columnas: ¿Ha tenido retrasos por falta de materiales?
+Valores: Conteo de respuestas
+Gráfica
+La gráfica utiliza columnas agrupadas 3D para mostrar la Frecuencia de Retrasos por Falta de Materiales por cargo (Operativo o Administrativo). En el eje horizontal se presentan los cargos y en el eje vertical el número de respuestas. Cada barra tiene un color que representan esta frecuencia: azul para "A veces", naranja para "Frecuentemente" y gris para “Rara vez”. El uso de columnas agrupadas en 3D permite comparar no solo cuántas respuestas se dieron por cargo, sino también la distribución de las percepciones sobre la claridad en la asignación de tareas, ofreciendo así una visión más detallada del contexto laboral.
+Conclusiones
+Los datos revelan que el 100% del personal administrativo (2/2) experimenta retrasos "A veces" por falta de materiales, mientras que en el área operativa: 62.5% (5/8) sufre retrasos "A veces", 12.5% (1/8) los padece "Frecuentemente" y solo 25% (2/8) los considera "Rara vez". Esto demuestra que: Los retrasos afectan a todos los departamentos, pero con mayor intensidad al operativo y existe un problema sistémico en la gestión de materiales que perjudica la productividad.
+La alta frecuencia de retrasos (reportada por el 80% del personal combinando las opciones "A veces" y "Frecuentemente") señala la urgente necesidad de implementar un sistema de gestión de materiales más robusto. La solución ROSALOPZManager podría transformar este proceso crítico.
+Conclusión del Análisis de Datos
+Vulnerabilidad en procesos operativos
+Los datos revelan que el área operativa presenta significativamente más errores en nómina (75% de los casos) y confusión en asignación de tareas (37.5%) comparado con el área administrativa. Esto señala una urgente necesidad de estandarizar y digitalizar estos procesos críticos.
+Deficiencias en gestión de inventario
+Aunque el 80% considera adecuado el control de inventario, el 20% restante reporta inconsistencias. Además, el 80% del personal experimenta retrasos por falta de materiales, indicando problemas en la planificación y seguimiento de insumos.
+Disposición favorable al cambio tecnológico
+El 87.5% del personal (incluyendo 75% del área operativa) está dispuesto a adoptar ROSALOPZManager. Esta apertura facilita la implementación, aunque requiere estrategias específicas para el 25% de operativos que muestran dudas.
+Brecha en percepción de procesos
+Mientras el área administrativa califica con 4/5 la gestión de nómina, el área operativa le da 3.25/5. Esta diferencia refleja problemas de comunicación y transparencia que afectan particularmente a los empleados de planta.
+Oportunidad de mejora integral
+Los hallazgos demuestran que los problemas actuales (errores, retrasos, confusión) están interconectados y podrían resolverse mediante una solución integrada que automatice nóminas, gestione inventarios y clarifique asignaciones.
+Implementación de ROSALOPZManager 
+Los resultados del análisis demuestran que los problemas recurrentes en gestión de nóminas, asignación de tareas y control de inventarios en Bufalo R.P. están directamente relacionados con la dependencia de procesos manuales y la falta de un sistema integrado.
+ROSALOPZManager se presenta como la solución óptima porque:
+Automatizará los cálculos de nómina, reduciendo errores que actualmente afectan principalmente al personal operativo.
+Digitalizará la asignación de tareas, proporcionando claridad y seguimiento en tiempo real para evitar confusiones.
+Optimizará el control de inventarios con alertas automatizadas que prevendrán retrasos por falta de materiales.
+Centralizará la información en una plataforma accesible, mejorando la transparencia y la toma de decisiones.
+Se adaptará a las necesidades específicas de la fábrica, a diferencia de sistemas genéricos que pueden ser complejos o costosos.
+Impacto esperado:
+Reducción de errores en pagos y asignaciones.
+Mayor eficiencia operativa al minimizar retrasos.
+Mejor clima laboral al aumentar la confianza en los procesos.
+La implementación de ROSALOPZManager no solo resolverá las problemáticas actuales, sino que sentará las bases para un crecimiento más ordenado y competitivo de Bufalo R.P. La disposición mayoritaria del equipo a adoptar esta herramienta (87.5%) confirma su viabilidad y potencial para transformar positivamente la gestión diaria de la empresa.
+Metodología
+En el desarrollo del proyecto ROSALOPZManager, utilizaremos la metodología XP (Extreme Programming), ya que se enfoca en la entrega continua de software funcional, fomentando la colaboración constante con los usuarios y la mejora iterativa. Esta metodología es ideal para proyectos como este, donde la calidad del código, la adaptabilidad y la respuesta rápida a los cambios son esenciales. XP nos permitirá garantizar un desarrollo eficiente mediante prácticas clave como la programación en parejas, pruebas continuas, refactorización y retroalimentación frecuente, asegurando que cada entrega cumpla con las expectativas del cliente.
+Fases de la Metodología
+Fase 1 – Planeación
+Objetivo de la Fase 1
+Definir y organizar los elementos clave del proyecto ROSALOPZManager mediante la identificación de los requerimientos iniciales, la recopilación de necesidades a través de reuniones con los usuarios, y la creación de historias de usuario. Esta fase busca comprender los problemas actuales de la empresa Bufalo R.P. y establecer las funcionalidades prioritarias para el sistema, asegurando que la planificación sirva como una base sólida para guiar las siguientes fases del desarrollo y garantizar que el sistema cumpla con las expectativas de los usuarios finales.
+Reuniones con los Usuarios 
+Durante las reuniones con los usuarios, que incluyeron tanto al jefe de la empresa, Rigoberto Palacios, como a varios empleados, se identificaron los problemas y las expectativas clave para el sistema ROSALOPZManager. A continuación, se detallan los resultados de las reuniones:
+Reunión con Rigoberto Palacios (Jefe de Calzado Bufalo R.P.)
+Problemas Identificados:
+Falta de automatización en la nómina: El cálculo de sueldos se realiza manualmente, lo que genera errores y retrasos.
+Control ineficiente de inventarios: El manejo de inventarios es manual, lo que genera desabastecimientos y exceso de materiales.
+Desorganización en la asignación de tareas: Las tareas no se asignan ni se monitorean eficientemente, afectando la productividad.
+Falta de acceso a información en tiempo real: La información sobre nóminas, inventarios y tareas no está centralizada, lo que retrasa la toma de decisiones.
+Expectativas del Sistema:
+Automatización del cálculo de nóminas para evitar errores y asegurar pagos precisos.
+Gestión eficiente de inventarios con alertas automáticas cuando los niveles sean bajos.
+Asignación clara de tareas para garantizar que los empleados conozcan sus responsabilidades.
+Acceso en tiempo real a datos relevantes, como el estado de las nóminas, tareas e inventarios, para facilitar la toma de decisiones rápidas.
+Reunión con los Empleados:
+Problemas Identificados:
+Falta de transparencia en los pagos: Los empleados no tienen acceso claro a su historial de pagos.
+Confusión en la asignación de tareas: Los empleados no siempre saben qué tareas deben realizar ni cuándo deben terminarlas.
+Dificultad en el acceso al inventario: Los empleados no tienen información en tiempo real sobre los materiales disponibles, lo que interrumpe el flujo de trabajo.
+Sistema manual y lento: La gestión de nóminas, inventarios y tareas se hace de forma manual, lo que resulta en ineficiencias y errores.
+Expectativas del Sistema:
+Acceso a historial de pagos para que los empleados puedan consultar su información de nómina.
+Visualización clara de las tareas asignadas con fechas límite y estado de las tareas.
+Acceso a la información de inventarios en tiempo real para que los empleados puedan trabajar sin interrupciones.
+Interfaz fácil de usar que permita a los empleados interactuar con el sistema sin problemas técnicos.
+Identificación de los Requerimientos 
+La fase de identificación de los requerimientos iniciales tiene como objetivo entender los problemas actuales que enfrenta la fábrica de calzado Bufalo R.P. y las expectativas que tienen los usuarios sobre el nuevo sistema ROSALOPZManager. Los principales problemas identificados incluyen la falta de automatización en la gestión de nóminas, inventarios y tareas, así como la falta de transparencia y accesibilidad a la información crítica. A partir de estos problemas, se derivan los requerimientos funcionales y no funcionales del sistema, que se detallan a continuación:
+Requerimientos Funcionales
+Gestión de Nominas:
+Calcular automáticamente los sueldos, deducciones y bonificaciones.
+Generar reportes de nómina en tiempo real.
+Permitir a los empleados consultar su historial de pagos y recibos.
+Gestión de Inventarios 
+Registrar y actualizar entradas y salidas de materiales en tiempo real.
+Monitorear los niveles de inventario y generar alertas automáticas cuando el stock esté bajo.
+Consultar productos y proveedores disponibles en el inventario.
+Gestión de Tareas
+Asignar tareas a los empleados con fechas de vencimiento y prioridades.
+Monitorear el progreso de las tareas y generar reportes de cumplimiento.
+Gestión de Usuarios:
+Crear perfiles de usuario con roles (administrador, jefe, empleado).
+Controlar el acceso al sistema mediante autenticación de usuario.
+Generación de Reportes:
+Generar reportes automáticos sobre nóminas, tareas e inventarios.
+Exportar reportes a formatos como PDF o Excel.
+Seguridad:
+Encriptar las contraseñas de los usuarios para garantizar la seguridad de los datos.
+Implementar protocolos de seguridad para la protección de la información sensible.
+Requerimientos No Funcionales
+Usabilidad:
+Interfaz sencilla e intuitiva que sea fácil de usar para todos los empleados, incluso sin experiencia técnica.
+Diseño responsivo para acceder desde dispositivos móviles y computadoras de escritorio.
+Rendimiento:
+El sistema debe ser capaz de manejar múltiples usuarios simultáneamente sin afectar el rendimiento.
+La actualización de los datos debe ser en tiempo real, sin demoras.
+Seguridad:
+Implementación de medidas de seguridad robustas para proteger la información de los empleados y de la empresa.
+Escalabilidad:
+El sistema debe ser escalable, permitiendo añadir más usuarios, productos e información a medida que la empresa crezca.
+Definición de las Historias de Usuario
+Las historias de usuario son descripciones de las funcionalidades del sistema desde la perspectiva de los usuarios finales. Cada historia describe una necesidad o funcionalidad clave que el sistema debe cumplir. A continuación se definen las historias de usuario para las principales áreas del sistema ROSALOPZManager:
+Gestión de Nóminas---------------------------------------------------------
+Gestión de Nóminas
+Como administrador, quiero calcular automáticamente los sueldos de los empleados, para evitar errores manuales y garantizar pagos precisos.
+Historia de Usuario N°1
+Gestión de Nóminas
+Como empleado, quiero acceder a mi historial de pagos, para verificar la información de mis sueldos y deducciones.
+Historia de Usuario N°2
+Gestión de Nóminas
+Como administrador, quiero generar reportes de nómina en tiempo real, para tomar decisiones informadas sobre pagos y bonificaciones.
+Historia de Usuario N°3
+Gestión de Inventarios------------------------------------------------------
+Gestión de Inventarios
+Como jefe, quiero registrar las entradas y salidas de materiales en el inventario, para llevar un control detallado de los recursos disponibles.
+Historia de Usuario N°4
+Gestión de Inventarios
+Como administrador, quiero recibir alertas automáticas cuando el stock esté bajo, para reabastecer los materiales a tiempo.
+Historia de Usuario N°5
+Gestión de Inventarios
+Como empleado, quiero consultar los productos disponibles en el inventario, para realizar mi trabajo sin interrupciones.
+Historia de Usuario N°6
+Gestión de Tareas------------------------------------------------------------
+Gestión de Tareas
+Como jefe, quiero asignar tareas a los empleados desde el sistema, para organizar mejor el trabajo diario.
+Historia de Usuario N°7
+Gestión de Tareas
+Como empleado, quiero ver las tareas asignadas y su fecha de vencimiento, para cumplirlas de manera eficiente.
+Historia de Usuario N°8
+Gestión de Tareas
+Como administrador, quiero generar reportes sobre el cumplimiento de tareas, para evaluar el desempeño del equipo.
+Historia de Usuario N°9
+Gestión de Usuarios---------------------------------------------------------
+Gestión de Usuarios
+Como administrador, quiero crear perfiles con roles específicos (jefe, empleado), para gestionar los permisos de acceso al sistema.
+Historia de Usuario N°10
+Gestión de Usuarios
+Como jefe, quiero modificar los datos de los empleados en sus perfiles, para mantener información actualizada.
+Historia de Usuario N°11
+Gestión de Usuarios
+Como empleado, quiero actualizar mi información personal (ej. teléfono, dirección), para mantener mis datos correctos.
+Historia de Usuario N°12
+Reportes y Análisis----------------------------------------------------------
+Reportes y Análisis 
+Como administrador, quiero visualizar gráficos y estadísticas de nóminas, inventarios y tareas, para monitorear el desempeño de la empresa.
+Historia de Usuario N°13
+Reportes y Análisis 
+Como jefe, quiero exportar reportes en formato PDF, para compartirlos con la dirección de la empresa.
+Historia de Usuario N°14
+Seguridad y Acceso----------------------------------------------------------
+Seguridad y Acceso
+Como administrador, quiero que las contraseñas de los usuarios estén encriptadas, para garantizar la seguridad de la información.
+Historia de Usuario N°15
+Seguridad y Acceso
+Como usuario, quiero recibir un correo de recuperación de contraseña, para restablecer mi acceso en caso de olvido.
+Historia de Usuario N°16
+Fase 2 - Diseño
+Objetivo de la Fase 2
+Definir la estructura lógica, visual y funcional del sistema completo ROSALOPZManager, que incluirá las funcionalidades de registro, login, inicio, perfil de usuario, nómina, gestión de inventarios, tareas y reportes. Este diseño servirá como la base para las siguientes fases de desarrollo.
+Diseño de la Base de Datos
+La base de datos será desarrollada en PostgreSQL, organizada para manejar eficientemente la información de usuarios, nóminas, inventarios, tareas y reportes.
+Tablas Principales
+Tabla: Usuarios
+Descripción: Almacena los datos de los usuarios registrados.
+Campos:
+id_usuario (int): Identificador único.
+nombre (varchar): Nombre del usuario.
+email (varchar): Correo electrónico único.
+contraseña (varchar): Contraseña encriptada.
+rol (varchar): Rol del usuario (administrador, jefe, empleado).
+Tabla: Nóminas
+Descripción: Almacena los registros salariales de los empleados.
+Campos:
+id_nomina (int): Identificador único.
+usuario_id (int): Relación con la tabla usuarios.
+salario (double presicion): Salario base.
+deducciones (double presicion): Descuentos aplicados.
+bonificaciones (double presicion): Bonos adicionales.
+fecha (date): Fecha del cálculo de la nómina.
+Tabla: Inventarios
+Descripción: Almacena el control de materiales y productos.
+Campos:
+id_producto (int): Identificador único del producto.
+nombre (varchar): Nombre del producto.
+cantidad (int): Cantidad disponible.
+proveedor (varchar): Nombre del proveedor.
+fecha_actualizacion (date): Última actualización del inventario.
+Tabla: Tareas
+Descripción: Almacena las tareas asignadas a los empleados.
+Campos:
+id_tarea (int): Identificador único.
+descripcion (varchar): Descripción de la tarea.
+usuario_id (int): Relación con el empleado asignado.
+estado (varchar): Estado de la tarea (pendiente, en progreso, completada).
+fecha_vencimiento (date): Fecha límite.
+Tabla: Reportes
+Descripción: Almacena los datos generados de los reportes.
+Campos:
+id_reporte (int): Identificador único.
+tipo (varchar): Tipo de reporte (nómina, inventarios, tareas).
+contenido (json): Datos del reporte en formato JSON.
+fecha_generacion (date): Fecha de creación del reporte.
+Relaciones Clave:
+Usuarios ↔ Nóminas: Relación uno a muchos.
+Usuarios ↔ Tareas: Relación uno a muchos.
+Usuarios ↔ Reportes: Relación uno a muchos.
+Inventarios: Independiente, pero relacionado con reportes.
+Diseño de las Interfaces de Usuario
+El diseño visual será desarrollado en HTML, CSS y JavaScript, asegurando una experiencia de usuario intuitiva, responsiva y funcional.
+Pantallas Principales por Módulo: 
+Módulo de Registro y Login:
+Pantalla de Registro:
+Formulario con campos: nombre, apellido, email, contraseña, rol.
+Botón "Registrar" y “Login”
+ Mockup “Registro”
+Pantalla de Login:
+Formulario para autenticación con email y contraseña.
+Botón "Iniciar Sesión" y “Registrarse”
+Enlace "Olvidé mi Contraseña".
+     Mockup “Login”
+Módulo de Inicio:
+Pantalla de Inicio:
+Opciones para acceder a los módulos de "Perfil", "Nómina", "Inventarios", "Tareas" y "Reportes".
+Botón "Cerrar Sesión".
+     Mockup “Inicio”
+Módulo de Perfil de Usuario:
+Pantalla de Perfil:
+Visualización y edición de datos personales.
+Botón "Actualizar Información".
+Módulo de Nóminas:
+Pantalla de Nóminas:
+Tabla que muestra los cálculos de sueldos, deducciones y bonificaciones.
+Botón para generar reporte de nómina.
+Módulo de Inventarios:
+Pantalla de Inventarios:
+Lista de productos con cantidad disponible y proveedor.
+Botón para agregar o actualizar productos.
+Alertas de bajo inventario.
+Módulo de Tareas:
+Pantalla de Tareas:
+Lista de tareas asignadas con su estado.
+Botón para actualizar estado (pendiente, en progreso, completada).
+Módulo de Reportes:
+Pantalla de Reportes:
+Opciones para generar reportes de nóminas, inventarios o tareas.
+Botón para exportar reportes a PDF o Excel.
+Diseño de Flujo del Sistema
+El flujo del sistema define cómo interactúan los módulos y cómo los usuarios navegan entre ellos.
+Diagrama de Flujo General 
+Inicio:
+El usuario se registra o inicia sesión.
+Si el login es exitoso, redirige a la pantalla de inicio.
+Acceso a Módulos:
+Desde la pantalla de inicio, el usuario puede:
+Acceder al módulo de perfil para editar sus datos.
+Consultar su nómina.
+Gestionar inventarios (administradores y jefes).
+Consultar inventario (empleado)
+Consultar o actualizar tareas.
+Generar y exportar reportes.
+Finalización:
+El usuario cierra sesión o genera un reporte final.
+Diagrama de Casos de Uso (Inicial)
+El diagrama de casos de uso presentado es una versión básica, diseñada en la fase inicial del proyecto, y se irá refinando a medida que el sistema evolucione. Este diagrama representa el flujo general del sistema, destacando cómo interactúan los módulos y cómo los usuarios (incluidos administradores y jefes) navegan entre ellos para realizar tareas clave como registro, consulta de nómina, gestión de inventarios, actualización de tareas y generación de reportes, asegurando una estructura clara para el desarrollo futuro.
+Diseño de Diagramas
+Diagrama de Casos de Uso
+Descripción General: El Diagrama de Casos de Uso representa las interacciones entre los actores del sistema y las funcionalidades que ofrece la aplicación. En este caso, el sistema ROSALOPZManager está diseñado para automatizar procesos clave en una fábrica, como la gestión de nóminas, inventarios, tareas, reportes y seguridad. Los actores involucrados incluyen Administrador, Jefe y Empleado, y los casos de uso cubren funcionalidades como el cálculo de nóminas, la gestión de inventarios, la asignación de tareas, la creación de reportes, y el acceso a la información de usuarios.
+Actores:
+Administrador: Persona encargada de gestionar el sistema, con permisos para administrar usuarios, generar reportes, gestionar nóminas, inventarios y tareas.
+Jefe: Persona responsable de asignar tareas a los empleados y generar reportes de desempeño.
+Empleado: Persona que consulta su historial de pagos, tareas asignadas y actualiza su información personal.
+Relaciones:
+Include: Representa un caso de uso que siempre se ejecuta como parte de otro caso de uso. Ejemplo: "Calcular Nómina" incluye "Generar Reporte de Nómina".
+Extend: Representa un caso de uso opcional que se ejecuta solo cuando se cumple una condición. Ejemplo: "Generar Reporte de Inventarios" puede extenderse para "Generar Reporte PDF".
+Diagrama de Entidad-Relación (ER)
+Descripción General: El Diagrama de Entidad-Relación (ER) describe cómo se estructuran y se relacionan las entidades dentro de la base de datos del sistema. A través de este diagrama, se visualizan las entidades principales, como Usuarios, Inventarios, Nóminas, Reportes y Tareas, y cómo estas se conectan entre sí mediante relaciones uno a muchos.
+Entidades:
+Usuarios: Almacena la información de los usuarios del sistema (empleados, jefes, administradores), como su nombre, correo electrónico, contraseña y rol.
+Inventarios: Contiene información sobre los productos y materiales en inventario, como nombre, cantidad, proveedor y fecha de actualización.
+Nóminas: Almacena los detalles de los sueldos, deducciones y bonificaciones de cada usuario, junto con la fecha de cálculo.
+Reportes: Registra los reportes generados por el sistema, incluyendo el tipo de reporte, contenido y fecha de generación.
+Tareas: Contiene las tareas asignadas a los usuarios, con descripciones, fechas de vencimiento y estado de cumplimiento.
+Relaciones:
+Usuarios a Inventarios: Un usuario puede gestionar muchos productos, pero cada producto solo tiene un usuario responsable.
+Usuarios a Nóminas: Un usuario tiene muchas nóminas asociadas a lo largo del tiempo.
+Usuarios a Reportes: Un usuario puede generar muchos reportes, pero cada reporte tiene un solo usuario que lo genera.
+Usuarios a Tareas: Un usuario puede tener múltiples tareas asignadas.
+Diagrama de Componentes
+Descripción General: El Diagrama de Componentes muestra la arquitectura modular del sistema ROSALOPZManager, dividiendo la solución en partes independientes que interactúan entre sí. Los componentes principales incluyen la Interfaz de Usuario (UI), el Backend (Controladores y Lógica de Negocio) y la Base de Datos, cada uno con un rol específico en el procesamiento de datos y la interacción del usuario.
+Componentes:
+Interfaz de Usuario (UI): Es la capa responsable de interactuar con el usuario. Proporciona interfaces gráficas para que el usuario ingrese datos, consulte información y realice acciones como consultar nóminas, tareas y productos en inventario.
+Backend (Controladores y Lógica de Negocio): La lógica de negocio procesa las solicitudes del usuario y realiza cálculos como el cálculo de nóminas, la asignación de tareas y la gestión de inventarios. Este componente también maneja las interacciones entre la UI y la base de datos.
+Base de Datos: Almacena la información relevante del sistema, como los datos de los usuarios, inventarios, tareas, nóminas y reportes. Permite la persistencia de los datos y facilita la consulta y actualización de la información.
+Relaciones entre Componentes:
+Interfaz de Usuario (UI) a Backend: La UI envía solicitudes al Backend para ejecutar operaciones como generar reportes, asignar tareas y consultar inventarios.
+Backend a Base de Datos: El Backend consulta y actualiza la Base de Datos para gestionar la información de los usuarios, tareas, inventarios, nóminas y reportes.
+Interfaz de Usuario (UI) a Base de Datos: A través de la lógica de negocio, la UI interactúa indirectamente con la Base de Datos para obtener y mostrar los datos al usuario.
+Diagrama de arquitectura
+El diagrama de Arquitectura (Componentes) describe cómo está estructurado el sistema ROSALOPZManager en términos de sus módulos principales y sus interacciones. Este diagrama utiliza una representación modular para destacar las responsabilidades y conexiones de cada componente. Vamos a analizarlo:
+Componentes principales:
+UI (Interfaz de Usuario):
+Función: Es la capa que interactúa directamente con los usuarios finales (jefes, administradores, empleados).
+Tecnologías utilizadas: HTML, CSS, JavaScript, Bootstrap (para diseño responsivo).
+Características:
+Formulario de login y registro.
+Pantallas para visualizar y gestionar nóminas, inventarios, tareas y reportes.
+Gráficos y tablas que muestran datos procesados.
+Interacción: Envía solicitudes al backend mediante una API REST (normalmente usando HTTP/HTTPS).
+Backend:
+Función: Es el núcleo de la lógica del sistema. Se encarga de procesar las solicitudes recibidas desde la UI, realizar cálculos o validaciones y gestionar los datos que interactúan con la base de datos.
+Tecnologías utilizadas: Node.js con el framework Express.js.
+Características:
+Implementa la arquitectura Modelo-Vista-Controlador (MVC):
+Modelo: Gestiona las reglas de negocio y las interacciones con la base de datos.
+Controladores: Procesan solicitudes y ejecutan la lógica del negocio.
+Vistas: Devuelven las respuestas adecuadas a la UI.
+Maneja rutas específicas para operaciones como consulta de nóminas, inventarios y reportes.
+Interacción: Comunica la UI con la base de datos y asegura que las solicitudes y respuestas fluyan correctamente.
+Base de Datos (Database):
+Función: Almacena de manera persistente toda la información crítica del sistema, como usuarios, nóminas, inventarios, tareas y reportes.
+Tecnologías utilizadas: PostgreSQL.
+Características:
+Tablas principales incluyen:
+Usuarios: Datos de los empleados, administradores y jefes.
+Nóminas: Sueldos, deducciones y bonificaciones.
+Inventarios: Información sobre materiales y stock.
+Tareas: Actividades asignadas con fechas y estados.
+Reportes: Información resumida para análisis y decisiones.
+Consultas SQL optimizadas para manejar datos en tiempo real.
+Interacciones:
+UI → Backend:
+Cuando un usuario realiza una acción (ejemplo: consultar nóminas), la UI envía una solicitud HTTP/HTTPS al backend a través de una API REST.
+La UI no interactúa directamente con la base de datos, lo que asegura que la lógica del negocio y la seguridad sean gestionadas por el backend.
+Backend → Database:
+El backend ejecuta consultas SQL para insertar, actualizar, eliminar o recuperar datos de la base de datos según las solicitudes recibidas.
+Esta separación asegura que los datos estén protegidos y procesados adecuadamente antes de ser enviados a la UI.
+Beneficios de esta arquitectura:
+Separación de responsabilidades:
+Cada componente tiene un rol específico, lo que facilita el desarrollo, mantenimiento y escalabilidad.
+Escalabilidad:
+La base de datos y el backend pueden ampliarse para manejar más usuarios o datos sin afectar directamente a la UI.
+Modularidad:
+La UI, el backend y la base de datos pueden evolucionar o actualizarse de manera independiente siempre que mantengan sus interfaces.
+Seguridad:
+La UI nunca interactúa directamente con la base de datos, evitando riesgos de seguridad (por ejemplo, ataques SQL Injection).
+Diagrama de secuencia
+Describe el flujo de interacción entre los actores (usuarios) y los componentes del sistema ROSALOPZManager, enfocándose en el proceso de asignación de tareas. Este tipo de diagrama es útil para visualizar el orden en que ocurren las acciones y cómo se comunican los elementos del sistema. Vamos a analizarlo en detalle:
+Elementos principales del diagrama:
+Actor (Jefe):
+Representa al usuario que interactúa con el sistema.
+En este caso, el jefe es quien utiliza el sistema para gestionar las tareas de los empleados.
+UI (Interfaz de Usuario):
+Es la parte del sistema con la que interactúa directamente el jefe. Aquí el usuario puede:
+Consultar tareas existentes.
+Asignar nuevas tareas.
+Está diseñada con tecnologías como HTML, CSS y JavaScript.
+Backend:
+Procesa las solicitudes enviadas desde la UI.
+Implementa la lógica del negocio (en este caso, para la gestión de tareas) y maneja las interacciones con la base de datos.
+DB (Base de Datos):
+Almacena de manera persistente toda la información del sistema, incluyendo las tareas asignadas.
+Responde a las solicitudes de lectura o escritura realizadas por el backend.
+Flujo de interacción:
+1. Consulta de tareas existentes:
+El jefe accede al módulo de tareas desde la UI:Envía una solicitud para ver las tareas asignadas a través de la interfaz de usuario.
+La UI envía la solicitud al backend:Aquí, el backend recibe la solicitud y procesa la información requerida.
+El backend consulta las tareas en la base de datos:Se ejecuta una consulta SQL en la base de datos para recuperar las tareas almacenadas.
+La base de datos devuelve la información al backend:El backend recibe las tareas encontradas.
+El backend envía los datos a la UI:Los datos se procesan y se muestran al jefe en un formato comprensible (ejemplo: tabla o lista de tareas).
+2. Asignación de nueva tarea:
+El jefe asigna una nueva tarea desde la UI:Ingresa la descripción, el empleado asignado y la fecha de vencimiento.
+La UI envía la solicitud al backend:La solicitud incluye los datos ingresados por el jefe.
+El backend procesa la solicitud y actualiza la base de datos:Se ejecuta una operación de inserción en la tabla de tareas para guardar la nueva tarea.
+La base de datos confirma la operación:Devuelve un mensaje de éxito al backend (por ejemplo, "Tarea registrada exitosamente").
+El backend envía una confirmación a la UI:La interfaz muestra un mensaje de éxito al jefe, indicando que la tarea fue asignada correctamente.
+Propósito del diagrama:
+Visualizar el flujo de trabajo: Muestra cómo las tareas fluyen desde el jefe hasta el sistema y viceversa.
+Asegurar la consistencia: Define un flujo claro para evitar problemas en el diseño y la implementación del sistema.
+Fomentar la comunicación: Ayuda a los desarrolladores y usuarios a entender cómo interactúan las distintas partes del sistema.
+Resumen de las interacciones:
+El jefe inicia las solicitudes desde la UI.
+La UI comunica esas solicitudes al backend, quien las interpreta y procesa.
+El backend realiza operaciones de consulta o actualización en la base de datos.
+Los resultados de la base de datos se devuelven al backend, y este a su vez, los entrega a la UI para su visualización o confirmación.
+DIAGRAMA DE SECUENCIA
+Fase 3 – Codificación
+Objetivo de la Fase 3
+Desarrollar e implementar las funcionalidades definidas en las fases previas, construyendo el sistema web ROSALOPZManager utilizando tecnologías web (HTML, CSS, JavaScript) y PostgreSQL para la base de datos. Esto incluye la integración del frontend, backend y la base de datos.
+Definición de Entorno de Desarrollo
+Lenguajes y Herramientas:
+Frontend: HTML, CSS y JavaScript.
+Backend: JavaScript con Node.js.
+Base de datos: PostgreSQL (pgAdmin4).
+IDE utilizado: Visual Studio Code
+Control de versiones: Git y GitHub para colaboración y control de cambios. 
+Servidor local: XAMPP como servidor para pruebas.
+Desarrollo del Sistema
+Frontend
+Estructura base HTML:
+Crear páginas para cada módulo: registro.html, login.html, inicio.html, perfil.html, nominas.html, inventarios.html, tareas.html, reportes.html.
+Implementar un diseño moderno y responsivo.
+Estilo visual con CSS:
+Crear una hoja de estilos global (style.css) para la consistencia visual.
+Usar Bootstrap para facilitar el diseño responsivo.
+Interactividad con JavaScript:
+Validación de formularios (login y registro).
+Implementar acciones dinámicas como carga de tablas, gráficos, etc.
+Base de Datos
+Configuración en PostgreSQL: 
+Crear las tablas y relaciones definidas en la Fase 2. 
+Bibliografía
+amazon.com. (04 de 10 de 2024). amazon.com. Obtenido de amazon.com: https://aws.amazon.com/es/what-is/web-application/#:~:text=Una%20aplicación%20web%20es%20un,y%20de%20una%20forma%20segura.
+AWS. (2024). ¿Qué es la integración de aplicaciones? Obtenido de AWS: https://aws.amazon.com/es/what-is/application-integration/
+concepto.de. (04 de 10 de 2024). concepto.de. Obtenido de concepto.de: https://concepto.de/base-de-datos/
+Geprom. (19 de Mayo de 2024). Digitalización de la industria 4.0. Obtenido de Geprom: https://www.geprom.com/digitalizacion-industria-4-0/#:~:text=Digitalizaci%C3%B3n%20de%20la%20industria%20%C2%BFQu%C3%A9,y%20manuales%20a%20formatos%20digitales.
+IBM. (10 de 06 de 2024). Gestión de inventarios. Obtenido de IBM: https://www.ibm.com/mx-es/topics/inventory-management
+MDN. (06 de 06 de 2024). CSS. Obtenido de MDN: https://developer.mozilla.org/es/docs/Web/CSS
+MDN. (28 de 07 de 2024). HTML: Lenguaje de etiquetas de hipertexto. Obtenido de MDN: https://developer.mozilla.org/es/docs/Web/HTML
+Orús, A. (28 de 08 de 2024). statista.com. Obtenido de https://es.statista.com/temas/10945/la-industria-del-calzado-en-el-mundo/#topicOverview
+Personio. (02 de 11 de 2022). Gestión de nóminas. Obtenido de Personio: https://www.personio.es/glosario/gestion-de-nominas/
+SAP. (2024). ¿Qué es ERP? Obtenido de SAP: https://www.sap.com/latinamerica/products/erp/what-is-erp.html
+SAP. (2024). Automatización de procesos: la clave para la eficiencia. Obtenido de SAP: https://www.sap.com/latinamerica/products/technology-platform/process-automation/what-is-process-automation.html#:~:text=Definici%C3%B3n%20de%20la%20automatizaci%C3%B3n%20de%20procesos&text=La%20automatizaci%C3%B3n%20de%20procesos%20es,comenzar%20r%C3%A1p
+Slack. (2024). Eficiencia operativa. Obtenido de Slack: https://slack.com/intl/es-es/blog/productivity/eficiencia-operativa
+Slotnisky, D. (17 de 11 de 2022). Digital House. Obtenido de https://www.digitalhouse.com/blog/html-css-y-javascript-para-que-sirve-cada-lenguaje/#:~:text=HTML%2C%20CSS%20y%20Javascript%20son,creados%20a%20partir%20de%20HTML.
+Velneo. (2025). Software ERP: Qué es, Historia, Características, Aplicaciones y Ejemplos. Obtenido de Velneo: https://www.velneo.com/blog/erp
+Zirquit, A. (27 de 09 de 2022). ¿Qué es un Sistema de Gestión en Digital? Obtenido de Agencia Zirquit: https://zirquit.com/que-es-un-sistema-de-gestion-en-digital/

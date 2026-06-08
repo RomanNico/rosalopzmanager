@@ -1,0 +1,321 @@
+/* ========================================
+   ROSALOPZManager - Auth Pages Styles
+   Login & Register
+   ======================================== */
+
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  position: relative;
+  z-index: 1;
+}
+
+.auth-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  max-width: 1000px;
+  width: 100%;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg), var(--shadow-glow);
+  border: 1px solid var(--border);
+}
+
+/* ---- Auth Brand Panel ---- */
+.auth-brand {
+  background: linear-gradient(145deg, rgba(67,97,238,0.3) 0%, rgba(58,12,163,0.5) 50%, rgba(76,201,240,0.15) 100%);
+  padding: 48px 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-brand::before {
+  content: '';
+  position: absolute;
+  top: -80px;
+  right: -80px;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: rgba(67,97,238,0.2);
+  filter: blur(60px);
+}
+
+.auth-brand::after {
+  content: '';
+  position: absolute;
+  bottom: -60px;
+  left: -60px;
+  width: 250px;
+  height: 250px;
+  border-radius: 50%;
+  background: rgba(76,201,240,0.15);
+  filter: blur(60px);
+}
+
+.auth-brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  position: relative;
+  z-index: 1;
+}
+
+.auth-brand-logo img {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+}
+
+.auth-logo-placeholder {
+  width: 52px;
+  height: 52px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: white;
+}
+
+.auth-brand-name {
+  font-size: 1.4rem;
+  font-weight: 800;
+  font-family: 'Outfit', sans-serif;
+}
+
+.auth-brand-tagline {
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.6);
+  margin-top: 2px;
+}
+
+.auth-brand-content {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-brand-title {
+  font-size: 2rem;
+  font-weight: 800;
+  font-family: 'Outfit', sans-serif;
+  line-height: 1.2;
+  margin-bottom: 16px;
+}
+
+.auth-brand-title span {
+  background: linear-gradient(135deg, var(--secondary), var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.auth-brand-desc {
+  font-size: 0.9rem;
+  color: rgba(255,255,255,0.7);
+  line-height: 1.7;
+  margin-bottom: 28px;
+}
+
+.auth-features {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-feature {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.88rem;
+  color: rgba(255,255,255,0.8);
+}
+
+.auth-feature-icon {
+  width: 32px;
+  height: 32px;
+  background: rgba(255,255,255,0.1);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.auth-footer-text {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.4);
+  position: relative;
+  z-index: 1;
+}
+
+/* ---- Auth Form Panel ---- */
+.auth-form-panel {
+  background: rgba(10,10,26,0.95);
+  padding: 48px 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.auth-form-header {
+  margin-bottom: 32px;
+}
+
+.auth-form-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  font-family: 'Outfit', sans-serif;
+  margin-bottom: 6px;
+}
+
+.auth-form-sub {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.auth-form-sub a {
+  color: var(--primary-light);
+  font-weight: 600;
+  transition: var(--transition-fast);
+}
+.auth-form-sub a:hover { color: var(--accent); }
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.auth-forgot {
+  text-align: right;
+  margin-top: -10px;
+  margin-bottom: 20px;
+}
+.auth-forgot a {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  transition: var(--transition-fast);
+}
+.auth-forgot a:hover { color: var(--primary-light); }
+
+.auth-submit-btn {
+  width: 100%;
+  padding: 14px;
+  font-size: 1rem;
+  margin-top: 8px;
+  border-radius: var(--radius-md);
+}
+
+/* Role selector */
+.role-selector {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.role-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  text-align: center;
+}
+
+.role-option input { display: none; }
+
+.role-option:hover {
+  border-color: var(--primary);
+  background: rgba(67,97,238,0.08);
+}
+
+.role-option.selected {
+  border-color: var(--primary);
+  background: rgba(67,97,238,0.15);
+}
+
+.role-option .role-icon { font-size: 1.4rem; }
+.role-option .role-name { font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); }
+.role-option.selected .role-name { color: var(--primary-light); }
+
+/* Password Strength */
+.password-strength {
+  margin-top: 8px;
+}
+.strength-bar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.strength-seg {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border);
+  transition: background 0.3s;
+}
+.strength-seg.weak { background: var(--danger); }
+.strength-seg.medium { background: var(--warning); }
+.strength-seg.strong { background: var(--success); }
+.strength-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Toggle password */
+.toggle-pwd {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1rem;
+  transition: var(--transition-fast);
+  padding: 4px;
+}
+.toggle-pwd:hover { color: var(--text-primary); }
+
+@media (max-width: 768px) {
+  .auth-container {
+    grid-template-columns: 1fr;
+    max-width: 480px;
+  }
+  .auth-brand { display: none; }
+  .auth-form-panel { padding: 36px 28px; }
+}
+
+@media (max-width: 480px) {
+  .auth-form-panel { padding: 28px 20px; }
+  .role-selector { grid-template-columns: repeat(3, 1fr); }
+}
+
+
+/* Login always dark - handled by #auth-screen in style.css */
