@@ -23,14 +23,36 @@ const TimeHelper = {
     const parts = formatter.formatToParts(date);
     const map = {};
     parts.forEach(p => map[p.type] = p.value);
-    // Format: YYYY-MM-DDTHH:mm:ss.000Z
-    return `${map.year}-${map.month}-${map.day}T${map.hour}:${map.minute}:${map.second}.000Z`;
+    if (map.hour === '24') map.hour = '00';
+    // Hora local de Bogotá con su desfase real (Colombia no tiene horario de verano).
+    // Antes terminaba en "Z" (UTC) y las horas se mostraban 5 horas corridas.
+    return `${map.year}-${map.month}-${map.day}T${map.hour}:${map.minute}:${map.second}.000-05:00`;
   },
   getBogotaToday: () => {
     return TimeHelper.getBogotaNow().split('T')[0];
   },
   getBogotaYear: () => {
     return parseInt(TimeHelper.getBogotaToday().split('-')[0]);
+  },
+  // Suma días a una fecha 'YYYY-MM-DD' y devuelve 'YYYY-MM-DD'
+  addDays: (dateStr, days) => {
+    const d = new Date(dateStr + 'T12:00:00');
+    d.setDate(d.getDate() + days);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  },
+  // Semana ISO 8601 de una fecha 'YYYY-MM-DD' -> { week, year }
+  getIsoWeek: (dateStr) => {
+    const [y, m, day] = String(dateStr).substring(0, 10).split('-').map(Number);
+    const d = new Date(Date.UTC(y, m - 1, day));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return { week: Math.ceil(((d - yearStart) / 86400000 + 1) / 7), year: d.getUTCFullYear() };
+  },
+  // Semana actual en formato 'YYYY-Www' (para <input type="week">)
+  getIsoWeekValue: (dateStr = TimeHelper.getBogotaToday()) => {
+    const { week, year } = TimeHelper.getIsoWeek(dateStr);
+    return `${year}-W${String(week).padStart(2, '0')}`;
   }
 };
 
@@ -62,9 +84,11 @@ const Toast = (() => {
     toast.className = `toast ${type}`;
     toast.innerHTML = `
       <span class="toast-icon">${icons[type] || 'ℹ️'}</span>
-      <span class="toast-msg">${message}</span>
+      <span class="toast-msg"></span>
       <button class="toast-close" onclick="this.closest('.toast').remove()">✕</button>
     `;
+    // textContent: el mensaje puede traer nombres escritos por usuarios
+    toast.querySelector('.toast-msg').textContent = message;
     c.appendChild(toast);
     setTimeout(() => {
       toast.classList.add('hiding');
@@ -151,17 +175,39 @@ const Modal = (() => {
    FORMATTING HELPERS
 =========================== */
 const Fmt = {
-  currency: (val) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(val),
+  currency: (val) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Number(val) || 0),
+
+  // Formato corto para gráficas: 4.2M, 850K
+  compact: (val) => {
+    const n = Number(val) || 0;
+    if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(1).replace('.0', '') + 'M';
+    if (Math.abs(n) >= 1e3) return Math.round(n / 1e3) + 'K';
+    return String(n);
+  },
+
+  // Celda CSV segura: comillas dobles escapadas y sin fórmulas de Excel (=, +, -, @)
+  csv: (val) => {
+    let s = String(val ?? '');
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return `"${s.replace(/"/g, '""')}"`;
+  },
+
+  // Escapa texto antes de insertarlo como HTML
+  esc: (val) => String(val ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])),
 
   date: (str) => {
     if (!str) return '-';
+    str = String(str);
     const d = new Date(str + (str.length === 10 ? 'T00:00:00' : ''));
+    if (isNaN(d)) return '-';
     return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
   },
 
   datetime: (str) => {
     if (!str) return '-';
-    return new Date(str).toLocaleString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const d = new Date(str);
+    if (isNaN(d)) return '-';
+    return d.toLocaleString('es-CO', { timeZone: 'America/Bogota', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   },
 
   rolBadge: (rol) => {
@@ -170,7 +216,7 @@ const Fmt = {
       jefe: '<span class="badge badge-secondary">🎯 Jefe</span>',
       empleado: '<span class="badge badge-info">👤 Empleado</span>',
     };
-    return map[rol] || rol;
+    return map[rol] || Fmt.esc(rol);
   },
 
   estadoNomina: (estado) => {
@@ -178,7 +224,7 @@ const Fmt = {
       pagada: '<span class="badge badge-success">✅ Pagada</span>',
       pendiente: '<span class="badge badge-warning">⏳ Pendiente</span>',
     };
-    return map[estado] || estado;
+    return map[estado] || Fmt.esc(estado);
   },
 
   estadoTarea: (estado) => {
@@ -187,7 +233,7 @@ const Fmt = {
       en_progreso: '<span class="badge badge-info">🔄 En Progreso</span>',
       completada: '<span class="badge badge-success">✅ Completada</span>',
     };
-    return map[estado] || estado;
+    return map[estado] || Fmt.esc(estado);
   },
 
   prioridadBadge: (prio) => {
@@ -196,7 +242,7 @@ const Fmt = {
       media: '<span class="badge badge-warning">📌 Media</span>',
       baja: '<span class="badge badge-info">🌱 Baja</span>',
     };
-    return map[prio] || prio;
+    return map[prio] || Fmt.esc(prio);
   },
 
   stockBadge: (cantidad, minimo) => {
@@ -222,7 +268,8 @@ const Fmt = {
       'linear-gradient(135deg, #ef233c, #c9182e)',
       'linear-gradient(135deg, #7b9ef8, #4361ee)',
     ];
-    return colors[(id - 1) % colors.length];
+    const n = Math.abs(parseInt(id) || 1);
+    return colors[(n - 1) % colors.length];
   },
 
   initials: (nombre) => {
@@ -303,7 +350,10 @@ const Charts = {
       grad.addColorStop(0, d.color || opts.color || '#4361ee');
       grad.addColorStop(1, d.color2 || opts.color2 || '#3a0ca3');
       ctx.beginPath();
-      ctx.roundRect(x, y, bw, barH, 4);
+      if (barH > 0) {
+        if (ctx.roundRect) ctx.roundRect(x, y, bw, barH, Math.min(4, barH / 2));
+        else ctx.rect(x, y, bw, barH);
+      }
       ctx.fillStyle = grad;
       ctx.fill();
       // Label
@@ -314,7 +364,7 @@ const Charts = {
       // Value
       ctx.fillStyle = '#a0a0c0';
       ctx.font = 'bold 11px Inter, sans-serif';
-      ctx.fillText(d.value, x + bw / 2, y - 6);
+      ctx.fillText(opts.formatValue ? opts.formatValue(d.value) : d.value, x + bw / 2, y - 6);
     });
   },
 };

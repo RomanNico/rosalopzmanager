@@ -233,8 +233,15 @@
 .sidebar-toggle:hover { background: var(--primary-dark); transform: scale(1.1); }
 
 /* ---- Main Content ---- */
+/* Las gráficas (canvas con ancho fijo) se adaptan al espacio disponible */
+.main-content canvas { max-width: 100%; height: auto; }
+.chart-legend { flex-wrap: wrap; }
+
 .main-content {
   flex: 1;
+  /* Sin esto, en flexbox el contenedor crece al ancho de su contenido (tablas anchas)
+     y en celular toda la página se sale por la derecha */
+  min-width: 0;
   margin-left: var(--sidebar-width);
   min-height: 100vh;
   display: flex;
@@ -389,7 +396,15 @@
 }
 
 @media (max-width: 480px) {
-  .app-header { padding: 0 16px; }
+  .app-header { padding: 0 12px; gap: 8px; }
   .page-content { padding: 16px; }
   .header-user-name, .header-user-role { display: none; }
+  /* El encabezado no cabía en 390 px: se muestra solo el nombre de la página actual */
+  .header-left { gap: 6px; min-width: 0; flex: 1; }
+  .breadcrumb { min-width: 0; }
+  .breadcrumb > span:not(.bc-current) { display: none; }
+  .breadcrumb .bc-current { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .header-right { gap: 6px; flex-shrink: 0; }
+  .header-btn, .theme-toggle-btn { width: 36px; height: 36px; }
+  .header-user { padding: 0; gap: 0; }
 }

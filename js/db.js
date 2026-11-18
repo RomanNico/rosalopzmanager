@@ -1,13 +1,11 @@
 /**
  * ROSALOPZManager - Database Module
- * Simulated database using localStorage
+ * Caché en localStorage sincronizada con PostgreSQL a través de server.js (/api)
  * Fábrica de Calzado Bufalo R.P.
  */
 
 const DB = (() => {
   const PREFIX = 'rosalopz_';
-  const USE_API = (typeof window !== 'undefined' && window.USE_API === true);
-  const API = (typeof window !== 'undefined' && window.API) ? window.API : null;
 
   /* ---- Helpers ---- */
   const get = (table) => JSON.parse(localStorage.getItem(PREFIX + table) || '[]');
@@ -16,24 +14,13 @@ const DB = (() => {
     const items = get(table);
     return items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : 1;
   };
-  const now = () => typeof TimeHelper !== 'undefined' ? TimeHelper.getBogotaNow() : new Date().toISOString();
-  const today = () => typeof TimeHelper !== 'undefined' ? TimeHelper.getBogotaToday() : new Date().toISOString().split('T')[0];
+  // TimeHelper viene de utils.js (se carga antes que este archivo)
+  const now = () => TimeHelper.getBogotaNow();
+  const today = () => TimeHelper.getBogotaToday();
 
 
-  // ISO Week and Year helper
-  const getWeekAndYear = (dateStr) => {
-    const d = new Date(dateStr + (dateStr.length === 10 ? 'T00:00:00' : ''));
-    const target = new Date(d.valueOf());
-    const dayNr = (d.getDay() + 6) % 7;
-    target.setDate(target.getDate() - dayNr + 3);
-    const firstThursday = target.valueOf();
-    target.setMonth(0, 1);
-    if (target.getDay() !== 4) {
-      target.setMonth(0, 1 + ((4 - target.getDay() + 7) % 7));
-    }
-    const week = 1 + Math.ceil((firstThursday - target) / 604800000);
-    return { week, year: d.getFullYear() };
-  };
+  // Semana ISO 8601 y su año (el mismo cálculo que usan los filtros y reportes)
+  const getWeekAndYear = (dateStr) => TimeHelper.getIsoWeek(dateStr);
 
   /* ---- Migrations for Schema Updates ---- */
   const migrate = () => {
@@ -168,23 +155,124 @@ const DB = (() => {
     }
   };
 
-  /* ---- Init / Seed ---- */
-  const syncAction = (method, table, id, data) => {
-    let url = 'http://localhost:3000/api/' + table;
-    if (id) url += '/' + id;
-    fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: data ? JSON.stringify(data) : undefined
-    }).catch(e => console.error('Sync Error:', e));
+  /* ---- Sincronización con PostgreSQL (server.js) ---- */
+  // Si la página la sirve server.js se usa el mismo origen; si se abre como archivo, localhost:3000
+  const API_BASE = (typeof location !== 'undefined' && location.protocol.startsWith('http'))
+    ? location.origin + '/api'
+    : 'http://localhost:3000/api';
+  const TOKEN_KEY = 'rosalopz_token';
+  let apiOnline = false;
+  let syncQueue = Promise.resolve();
+
+  const getToken = () => sessionStorage.getItem(TOKEN_KEY);
+  const authHeaders = () => {
+    const h = { 'Content-Type': 'application/json' };
+    const t = getToken();
+    if (t) h.Authorization = 'Bearer ' + t;
+    return h;
+  };
+  // app.js escucha estos eventos para cerrar sesión o mostrar el error
+  const emit = (name, detail) => {
+    if (typeof window !== 'undefined' && window.dispatchEvent) window.dispatchEvent(new CustomEvent(name, { detail }));
   };
 
-  const init = async () => {
-    
+  // Petición que espera la respuesta (login, cambio de contraseña, sync)
+  const api = async (method, path, body) => {
+    const res = await fetch(API_BASE + path, { method, headers: authHeaders(), body: body ? JSON.stringify(body) : undefined });
+    let data = {};
+    try { data = await res.json(); } catch (e) { /* sin cuerpo */ }
+    if (res.status === 401 && getToken()) emit('rosalopz:sesion-expirada');
+    return { ok: res.ok, status: res.status, data: data || {} };
+  };
+
+  // Escrituras en segundo plano, encadenadas para que lleguen en orden (crear antes de editar, etc.)
+  const syncAction = (method, table, id, data) => {
+    if (!apiOnline || !getToken()) return;
+    let url = `${API_BASE}/${table}`;
+    if (id) url += '/' + id;
+    syncQueue = syncQueue
+      .then(() => fetch(url, { method, headers: authHeaders(), body: data ? JSON.stringify(data) : undefined }))
+      .then(async (res) => {
+        if (res.ok) return;
+        if (res.status === 401) return emit('rosalopz:sesion-expirada');
+        let msg = `Error ${res.status}`;
+        try { msg = (await res.json()).error || msg; } catch (e) { /* ignorar */ }
+        console.error(`Sync ${method} ${table}/${id || ''} falló:`, msg);
+        emit('rosalopz:error-sync', msg);
+      })
+      .catch(e => {
+        console.error('Sync Error:', e);
+        emit('rosalopz:error-sync', 'No se pudo guardar en el servidor. Revisa que esté encendido.');
+      });
+  };
+  // Guarda el registro completo (crear o actualizar con el id del frontend)
+  const syncSave = (table, record) => record && syncAction('PUT', table, record.id, record);
+  // Crea sin id: el servidor lo asigna (se usa en notificaciones, que crean usuarios distintos)
+  const syncCreate = (table, record) => {
+    const { id, ...rest } = record;
+    syncAction('POST', table, null, rest);
+  };
+  const syncDelete = (table, id) => syncAction('DELETE', table, id);
+
+  const checkServer = async () => {
     try {
-      const res = await fetch('http://localhost:3000/api/sync');
-      const data = await res.json();
-      if (data && data.usuarios) {
+      const res = await fetch(`${API_BASE}/health`);
+      return res.ok;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  // Descarga los datos del usuario que inició sesión
+  const syncFromServer = async () => {
+    try {
+      const r = await api('GET', '/sync');
+      if (!r.ok || !Array.isArray(r.data.usuarios)) return false;
+      loadFromServer(r.data);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  /* ---- Init / Seed ---- */
+  const init = async () => {
+    apiOnline = await checkServer();
+
+    if (apiOnline) {
+      // Con servidor: los datos se descargan después del login (o ahora, si ya hay sesión)
+      if (getToken() && !(await syncFromServer())) Session.clear();
+      return;
+    }
+
+    console.warn('%c⚠️ Servidor no disponible: modo sin conexión (los datos quedan solo en este navegador)', 'color: #f8a80c');
+    if (!localStorage.getItem(PREFIX + 'initialized')) seedLocal();
+    migrate();
+  };
+
+  // Al cerrar sesión con servidor, no dejar datos de la empresa guardados en el navegador
+  const logout = () => {
+    Session.clear();
+    if (apiOnline) {
+      LOCAL_TABLES.forEach(t => localStorage.removeItem(PREFIX + t));
+      localStorage.removeItem(PREFIX + 'initialized');
+    }
+  };
+
+  const LOCAL_TABLES = ['usuarios', 'catalogo', 'inventario', 'tareas', 'nominas', 'notificaciones', 'reportes'];
+
+  // Antes de la versión con PostgreSQL todo vivía solo en el navegador. La primera vez que
+  // la base reemplaza esos datos, se guarda una copia en 'rosalopz_backup_local' por si acaso.
+  const backupLocalOnce = () => {
+    if (localStorage.getItem(PREFIX + 'backup_local') || !localStorage.getItem(PREFIX + 'initialized')) return;
+    const backup = { fecha: now() };
+    LOCAL_TABLES.forEach(t => { backup[t] = get(t); });
+    localStorage.setItem(PREFIX + 'backup_local', JSON.stringify(backup));
+    console.log('%c💾 Copia de los datos locales guardada en localStorage["rosalopz_backup_local"]', 'color: #f8a80c');
+  };
+
+  const loadFromServer = (data) => {
+        backupLocalOnce();
         // Normalize types from PostgreSQL (all numeric fields may come as strings)
         const parseNum = (v) => v !== null && v !== undefined && v !== '' ? parseFloat(v) : 0;
         const parseId = (v) => v !== null && v !== undefined ? parseInt(v) : null;
@@ -192,7 +280,9 @@ const DB = (() => {
         const normalizedUsuarios = data.usuarios.map(u => ({
           ...u, 
           id: parseId(u.id),
-          rol: (u.rol || '').toLowerCase()
+          // 'jefe' es un rol antiguo: equivale a administrador
+          rol: (u.rol || '').toLowerCase() === 'jefe' ? 'administrador' : (u.rol || '').toLowerCase(),
+          debe_cambiar_password: u.debe_cambiar_password === true,
         }));
         const normalizedCatalogo = data.catalogo.map(c => ({
           ...c, id: parseId(c.id),
@@ -204,7 +294,7 @@ const DB = (() => {
           ...i, id: parseId(i.id),
           cantidad: parseInt(i.cantidad) || 0,
           precio_unitario: parseNum(i.precio_unitario),
-          stock_minimo: parseInt(i.stock_minimo) || 10,
+          stock_minimo: Number.isNaN(parseInt(i.stock_minimo)) ? 10 : parseInt(i.stock_minimo),
         }));
         const normalizedTareas = data.tareas.map(t => ({
           ...t, id: parseId(t.id),
@@ -212,6 +302,8 @@ const DB = (() => {
           asignado_por: parseId(t.asignado_por),
           catalogo_id: parseId(t.catalogo_id),
           talla: t.talla ? parseInt(t.talla) : null,
+          cantidad_pares: parseInt(t.cantidad_pares) || 0,
+          tallas_lote: Array.isArray(t.tallas_lote) ? t.tallas_lote.map(Number) : [],
           historial_etapas: Array.isArray(t.historial_etapas) ? t.historial_etapas.map(h => ({
             ...h, usuario_id: parseId(h.usuario_id)
           })) : [],
@@ -233,25 +325,24 @@ const DB = (() => {
           leida: n.leida === true || n.leida === 't' || n.leida === 'true',
         }));
 
+        const normalizedReportes = (data.reportes || []).map(r => ({
+          ...r, id: parseId(r.id),
+          generado_por: parseId(r.generado_por),
+          contenido: r.contenido || {},
+        }));
+
         set('usuarios', normalizedUsuarios);
         set('catalogo', normalizedCatalogo);
         set('inventario', normalizedInventario);
         set('tareas', normalizedTareas);
         set('nominas', normalizedNominas);
         set('notificaciones', normalizedNotificaciones);
+        set('reportes', normalizedReportes);
         localStorage.setItem(PREFIX + 'initialized', '1');
         console.log('%c✅ Datos sincronizados desde PostgreSQL', 'color: #06d6a0; font-weight: bold');
-        return;
-      }
-    } catch (e) {
-      console.warn('Backend no disponible, usando localStorage', e);
-    }
+  };
 
-    if (localStorage.getItem(PREFIX + 'initialized')) {
-      migrate();
-      return;
-    }
-
+  const seedLocal = () => {
     // Seed users
     const users = [
       { id: 1, nombre: 'Admin Sistema', email: 'admin@bufalo.com', password: btoa('admin123'), rol: 'administrador', cargo: 'Administración', telefono: '3001234567', direccion: 'Bogotá DC', creado_en: now() },
@@ -411,57 +502,24 @@ const DB = (() => {
     set('notificaciones', []);
 
     localStorage.setItem(PREFIX + 'initialized', '1');
-    migrate();
-    console.log('%c✅ ROSALOPZManager DB inicializada y migrada', 'color: #06d6a0; font-weight: bold');
-  };
-
-  /* ---- Sync to remote API ---- */
-  const syncToServer = async () => {
-    if (!(typeof window !== 'undefined' && window.USE_API === true)) return { ok: false, message: 'API disabled' };
-    if (typeof window === 'undefined' || !window.API) return { ok: false, message: 'API client missing' };
-    try {
-      // Usuarios
-      const usuarios = get('usuarios');
-      for (const u of usuarios) {
-        try {
-          await window.API.createUsuario({ nombre: u.nombre, email: u.email, password: u.password, rol: u.rol, cargo: u.cargo, telefono: u.telefono, direccion: u.direccion });
-        } catch (e) { /* ignore */ }
-      }
-      // Inventario
-      const inventario = get('inventario');
-      for (const it of inventario) {
-        try {
-          await window.API.createInventario({ referencia: it.referencia || '', nombre: it.nombre || '', talla: it.talla || '', color: it.color || '', existencia: it.existencia || it.cantidad || 0, img: it.foto || it.img || '' });
-        } catch (e) { }
-      }
-      // Nóminas
-      const nominas = get('nominas');
-      for (const n of nominas) {
-        try {
-          await window.API.createNomina({ empleado_id: n.usuario_id || n.empleado_id, empleado_nombre: n.empleado_nombre || '', monto: n.salario || n.monto || 0, fecha: n.fecha, medio_pago: n.medio_pago || null, comprobante: n.comprobante || null });
-        } catch (e) { }
-      }
-      // Trigger server-side migration for roles as well
-      try { await window.API.migrateJefeToAdmin(); } catch (e) { }
-      return { ok: true };
-    } catch (e) {
-      return { ok: false, error: e.message };
-    }
+    console.log('%c✅ ROSALOPZManager DB local inicializada', 'color: #06d6a0; font-weight: bold');
   };
 
   /* ==============================
      USUARIOS CRUD
   ============================== */
+  const cleanEmail = (email) => (email || '').replace(/﻿/g, '').trim().toLowerCase();
+
   const Usuarios = {
     getAll: () => get('usuarios'),
     getById: (id) => get('usuarios').find(u => u.id === id) || null,
-    getByEmail: (email) => get('usuarios').find(u => u.email === email.toLowerCase()) || null,
+    getByEmail: (email) => get('usuarios').find(u => u.email === cleanEmail(email)) || null,
     getEmpleados: () => get('usuarios').filter(u => u.rol === 'empleado'),
     getEmpleadosPorCargo: (cargo) => get('usuarios').filter(u => u.rol === 'empleado' && u.cargo === cargo),
 
     create: (data) => {
       const usuarios = get('usuarios');
-      const normalizedEmail = (data.email || '').replace(/\uFEFF/g, '').trim().toLowerCase();
+      const normalizedEmail = cleanEmail(data.email);
       if (usuarios.find(u => u.email === normalizedEmail)) {
         return { error: 'El correo ya está registrado' };
       }
@@ -469,16 +527,20 @@ const DB = (() => {
         id: nextId('usuarios'),
         nombre: data.nombre.trim(),
         email: normalizedEmail,
-        password: btoa(data.password),
         rol: data.rol ? data.rol.toLowerCase() : 'empleado',
-        cargo: data.cargo || (data.rol === 'empleado' ? 'Cortador' : (data.rol === 'jefe' ? 'Dirección' : 'Administración')),
+        cargo: data.cargo || (data.rol === 'empleado' ? 'Cortador' : 'Administración'),
         telefono: data.telefono || '',
         direccion: data.direccion || '',
         creado_en: now(),
+        // La contraseña inicial la puso el admin: el usuario deberá cambiarla al entrar
+        debe_cambiar_password: true,
       };
+      // Con servidor la contraseña viaja una sola vez y allá se guarda con hash;
+      // en el navegador NO se guarda. Sin servidor (modo local) se guarda como antes.
+      if (!apiOnline) user.password = btoa(data.password);
       usuarios.push(user);
-      syncAction('POST', 'usuarios', null, user);
       set('usuarios', usuarios);
+      syncSave('usuarios', { ...user, password: data.password });
       return { ok: true, user };
     },
 
@@ -486,29 +548,121 @@ const DB = (() => {
       const usuarios = get('usuarios');
       const idx = usuarios.findIndex(u => u.id === id);
       if (idx === -1) return { error: 'Usuario no encontrado' };
-      usuarios[idx] = { ...usuarios[idx], ...data, id };
-      syncAction('PUT', 'usuarios', id, data);
+      const changes = { ...data };
+      delete changes.password; // la contraseña se cambia solo con changePassword()
+      if (changes.email !== undefined) {
+        changes.email = cleanEmail(changes.email);
+        if (usuarios.some(u => u.email === changes.email && u.id !== id)) {
+          return { error: 'El correo ya está registrado por otro usuario' };
+        }
+      }
+      if (changes.nombre !== undefined) changes.nombre = changes.nombre.trim();
+      if (changes.rol !== undefined) changes.rol = changes.rol.toLowerCase();
+      usuarios[idx] = { ...usuarios[idx], ...changes, id };
       set('usuarios', usuarios);
+      syncSave('usuarios', usuarios[idx]);
       return { ok: true, user: usuarios[idx] };
     },
 
     delete: (id) => {
-      const usuarios = get('usuarios').filter(u => u.id !== id);
-      syncAction('DELETE', 'usuarios', id);
-      set('usuarios', usuarios);
+      set('usuarios', get('usuarios').filter(u => u.id !== id));
+      // Igual que en el servidor: soltar referencias del usuario eliminado
+      set('notificaciones', get('notificaciones').filter(n => n.para_usuario_id !== id));
+      syncDelete('usuarios', id);
       return { ok: true };
     },
 
-    login: (email, password) => {
-      const allUsers = get('usuarios');
-      const cleanEmail = (email || '').replace(/\uFEFF/g, '').trim().toLowerCase();
-      const user = allUsers.find(u => u.email && u.email === cleanEmail);
-      if (!user) return { error: 'Correo no registrado' };
-      if (user.password !== btoa(password)) return { error: 'Contraseña incorrecta' };
+    /**
+     * Login. Con servidor la contraseña se verifica en server.js (hash scrypt) y se recibe un token.
+     * Sin servidor (modo local) se compara con los datos del navegador.
+     */
+    login: async (email, password) => {
+      if (apiOnline) {
+        let r;
+        try {
+          r = await api('POST', '/login', { email: cleanEmail(email), password });
+        } catch (e) {
+          return { error: 'No se pudo conectar con el servidor' };
+        }
+        if (!r.ok) return { error: r.data.error || 'No se pudo iniciar sesión' };
+        sessionStorage.setItem(TOKEN_KEY, r.data.token);
+        if (!(await syncFromServer())) {
+          Session.clear();
+          return { error: 'No se pudieron cargar los datos del servidor' };
+        }
+        return { ok: true, user: r.data.user };
+      }
+
+      const user = get('usuarios').find(u => u.email && u.email === cleanEmail(email));
+      if (user && !user.password) {
+        return { error: 'El servidor no está disponible. Enciéndelo con "npm start" para iniciar sesión.' };
+      }
+      let encoded = null;
+      try { encoded = btoa(password); } catch (e) { /* caracteres no válidos */ }
+      if (!user || user.password !== encoded) return { error: 'Correo o contraseña incorrectos' };
       const { password: _, ...safeUser } = user;
-      // Ensure rol is lowercase
       safeUser.rol = (safeUser.rol || '').toLowerCase();
       return { ok: true, user: safeUser };
+    },
+
+    /**
+     * Cambia la contraseña. Si se pasa `actual` se verifica (cambio propio);
+     * sin `actual` es un restablecimiento hecho por un administrador.
+     */
+    changePassword: async (id, nueva, actual) => {
+      if (!nueva || nueva.length < 6) return { error: 'La nueva contraseña debe tener al menos 6 caracteres' };
+      const propio = actual !== undefined;
+      if (apiOnline) {
+        try {
+          const r = await api('POST', `/usuarios/${id}/password`, { actual, nueva });
+          if (!r.ok) return { error: r.data.error || 'No se pudo cambiar la contraseña' };
+        } catch (e) {
+          return { error: 'No se pudo conectar con el servidor' };
+        }
+      }
+      const usuarios = get('usuarios');
+      const u = usuarios.find(x => x.id === id);
+      if (!apiOnline) {
+        if (!u) return { error: 'Usuario no encontrado' };
+        if (propio && u.password !== btoa(actual)) return { error: 'Contraseña actual incorrecta' };
+        if (propio && actual === nueva) return { error: 'La nueva contraseña debe ser diferente a la actual' };
+        u.password = btoa(nueva);
+      }
+      // Igual que el servidor: si la pone un admin, el usuario deberá cambiarla al entrar
+      if (u) {
+        u.debe_cambiar_password = !propio;
+        set('usuarios', usuarios);
+      }
+      return { ok: true };
+    },
+
+    /**
+     * Restablecer (admin): genera una contraseña temporal y la devuelve UNA sola vez.
+     * El usuario deberá cambiarla la próxima vez que entre.
+     */
+    resetPassword: async (id) => {
+      let temporal;
+      if (apiOnline) {
+        try {
+          const r = await api('POST', `/usuarios/${id}/reset-password`);
+          if (!r.ok) return { error: r.data.error || 'No se pudo restablecer la contraseña' };
+          temporal = r.data.temporal;
+        } catch (e) {
+          return { error: 'No se pudo conectar con el servidor' };
+        }
+      } else {
+        const alfabeto = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+        const rnd = crypto.getRandomValues(new Uint32Array(6));
+        temporal = 'Bufalo-' + Array.from(rnd, n => alfabeto[n % alfabeto.length]).join('');
+      }
+      const usuarios = get('usuarios');
+      const u = usuarios.find(x => x.id === id);
+      if (u) {
+        if (!apiOnline) u.password = btoa(temporal);
+        u.debe_cambiar_password = true;
+        set('usuarios', usuarios);
+      }
+      return { ok: true, temporal };
     },
   };
 
@@ -534,8 +688,8 @@ const DB = (() => {
         creado_en: now(),
       };
       catalogo.push(producto);
-      syncAction('POST', 'catalogo', null, producto);
       set('catalogo', catalogo);
+      syncSave('catalogo', producto);
       return { ok: true, producto };
     },
     update: (id, data) => {
@@ -543,21 +697,24 @@ const DB = (() => {
       const idx = catalogo.findIndex(c => c.id === id);
       if (idx === -1) return { error: 'Producto no encontrado' };
 
-      const tallas = Array.isArray(data.tallas) ? data.tallas.map(Number) : catalogo[idx].tallas;
-      const colores = Array.isArray(data.colores) ? data.colores.map(c => c.trim()) : catalogo[idx].colores;
-
-      catalogo[idx] = { 
-        ...catalogo[idx], 
-        ...data, 
-        tallas,
-        colores,
-        id 
+      const prev = catalogo[idx];
+      catalogo[idx] = {
+        ...prev,
+        ...data,
+        referencia: data.referencia !== undefined ? data.referencia.trim() : prev.referencia,
+        nombre: data.nombre !== undefined ? data.nombre.trim() : prev.nombre,
+        precio: data.precio !== undefined ? (parseFloat(data.precio) || 0) : prev.precio,
+        tallas: Array.isArray(data.tallas) ? data.tallas.map(Number) : prev.tallas,
+        colores: Array.isArray(data.colores) ? data.colores.map(c => c.trim()) : prev.colores,
+        id
       };
       set('catalogo', catalogo);
+      syncSave('catalogo', catalogo[idx]);
       return { ok: true, producto: catalogo[idx] };
     },
     delete: (id) => {
       set('catalogo', get('catalogo').filter(c => c.id !== id));
+      syncDelete('catalogo', id);
       return { ok: true };
     }
   };
@@ -565,37 +722,40 @@ const DB = (() => {
   /* ==============================
      NÓMINAS CRUD
   ============================== */
+  const withNeto = (n) => {
+    const salario = parseFloat(n.salario) || 0;
+    const deducciones = parseFloat(n.deducciones) || 0;
+    const bonificaciones = parseFloat(n.bonificaciones) || 0;
+    return {
+      ...n,
+      salario,
+      deducciones,
+      bonificaciones,
+      neto: salario - deducciones + bonificaciones,
+      semana: parseInt(n.semana) || 0,
+      año: parseInt(n.año) || parseInt(n.ano) || new Date().getFullYear(),
+    };
+  };
+
+  // Lo que se guarda (sin campos calculados)
+  const nominaRecord = (n) => {
+    const { neto, usuario, ...rec } = n;
+    rec.ano = rec.año;
+    return rec;
+  };
+
   const Nominas = {
     getAll: () => {
-      const nominas = get('nominas');
       const usuarios = get('usuarios');
-      return nominas.map(n => {
-        const salario = parseFloat(n.salario) || 0;
-        const deducciones = parseFloat(n.deducciones) || 0;
-        const bonificaciones = parseFloat(n.bonificaciones) || 0;
-        return {
-          ...n,
-          salario,
-          deducciones,
-          bonificaciones,
-          neto: salario - deducciones + bonificaciones,
-          semana: parseInt(n.semana) || 0,
-          año: parseInt(n.año) || parseInt(n.ano) || new Date().getFullYear(),
-          usuario: usuarios.find(u => u.id === (parseInt(n.usuario_id) || n.usuario_id)) || null,
-        };
-      });
+      return get('nominas').map(n => ({
+        ...withNeto(n),
+        usuario: usuarios.find(u => u.id === (parseInt(n.usuario_id) || n.usuario_id)) || null,
+      }));
     },
-
 
     getByUsuario: (usuario_id) => {
       const uid = parseInt(usuario_id);
-      const nominas = get('nominas').filter(n => parseInt(n.usuario_id) === uid);
-      return nominas.map(n => {
-        const salario = parseFloat(n.salario) || 0;
-        const deducciones = parseFloat(n.deducciones) || 0;
-        const bonificaciones = parseFloat(n.bonificaciones) || 0;
-        return { ...n, salario, deducciones, bonificaciones, neto: salario - deducciones + bonificaciones };
-      });
+      return get('nominas').filter(n => parseInt(n.usuario_id) === uid).map(withNeto);
     },
 
     create: (data) => {
@@ -605,7 +765,7 @@ const DB = (() => {
       const nomina = {
         id: nextId('nominas'),
         usuario_id: parseInt(data.usuario_id),
-        salario: parseFloat(data.salario),
+        salario: parseFloat(data.salario) || 0,
         deducciones: parseFloat(data.deducciones) || 0,
         bonificaciones: parseFloat(data.bonificaciones) || 0,
         fecha: dateVal,
@@ -617,30 +777,42 @@ const DB = (() => {
       };
       nominas.push(nomina);
       set('nominas', nominas);
-      return { ok: true, nomina: { ...nomina, neto: nomina.salario - nomina.deducciones + nomina.bonificaciones } };
+      syncSave('nominas', nominaRecord(nomina));
+      return { ok: true, nomina: withNeto(nomina) };
     },
 
     update: (id, data) => {
       const nominas = get('nominas');
       const idx = nominas.findIndex(n => n.id === id);
       if (idx === -1) return { error: 'Nómina no encontrada' };
-      
-      let extra = {};
-      if (data.fecha) {
-        const wy = getWeekAndYear(data.fecha);
-        extra = { semana: wy.week, año: wy.year };
-      }
-      // Preserve comprobante if not provided during update
-      const comprobante = data.comprobante !== undefined ? data.comprobante : nominas[idx].comprobante;
-      const medio = data.medio_pago !== undefined ? data.medio_pago : nominas[idx].medio_pago || '';
 
-      nominas[idx] = { ...nominas[idx], ...data, ...extra, comprobante, medio_pago: medio, id };
+      const prev = nominas[idx];
+      const changes = { ...data };
+      if (changes.fecha) {
+        const wy = getWeekAndYear(changes.fecha);
+        changes.semana = wy.week;
+        changes.año = wy.year;
+      }
+      if (changes.usuario_id !== undefined) changes.usuario_id = parseInt(changes.usuario_id);
+      ['salario', 'deducciones', 'bonificaciones'].forEach(k => {
+        if (changes[k] !== undefined) changes[k] = parseFloat(changes[k]) || 0;
+      });
+
+      nominas[idx] = {
+        ...prev,
+        ...changes,
+        comprobante: changes.comprobante !== undefined ? changes.comprobante : prev.comprobante,
+        medio_pago: changes.medio_pago !== undefined ? changes.medio_pago : (prev.medio_pago || ''),
+        id
+      };
       set('nominas', nominas);
+      syncSave('nominas', nominaRecord(nominas[idx]));
       return { ok: true };
     },
 
     delete: (id) => {
       set('nominas', get('nominas').filter(n => n.id !== id));
+      syncDelete('nominas', id);
       return { ok: true };
     },
 
@@ -659,6 +831,8 @@ const DB = (() => {
   /* ==============================
      INVENTARIO CRUD
   ============================== */
+  const toInt = (v, def = 0) => Number.isNaN(parseInt(v)) ? def : parseInt(v);
+
   const Inventario = {
     getAll: () => get('inventario'),
     getById: (id) => get('inventario').find(p => p.id === id) || null,
@@ -669,16 +843,17 @@ const DB = (() => {
       const producto = {
         id: nextId('inventario'),
         nombre: data.nombre.trim(),
-        cantidad: parseInt(data.cantidad) || 0,
+        cantidad: toInt(data.cantidad, 0),
         unidad: data.unidad || 'unidades',
         proveedor: data.proveedor || '',
         precio_unitario: parseFloat(data.precio_unitario) || 0,
-        stock_minimo: parseInt(data.stock_minimo) || 10,
+        stock_minimo: toInt(data.stock_minimo, 10),
         categoria: data.categoria || 'General',
         fecha_actualizacion: today(),
       };
       inventario.push(producto);
       set('inventario', inventario);
+      syncSave('inventario', producto);
       return { ok: true, producto };
     },
 
@@ -686,8 +861,19 @@ const DB = (() => {
       const inventario = get('inventario');
       const idx = inventario.findIndex(p => p.id === id);
       if (idx === -1) return { error: 'Producto no encontrado' };
-      inventario[idx] = { ...inventario[idx], ...data, id, fecha_actualizacion: today() };
+      const prev = inventario[idx];
+      inventario[idx] = {
+        ...prev,
+        ...data,
+        nombre: data.nombre !== undefined ? data.nombre.trim() : prev.nombre,
+        cantidad: data.cantidad !== undefined ? toInt(data.cantidad, 0) : prev.cantidad,
+        precio_unitario: data.precio_unitario !== undefined ? (parseFloat(data.precio_unitario) || 0) : prev.precio_unitario,
+        stock_minimo: data.stock_minimo !== undefined ? toInt(data.stock_minimo, 10) : prev.stock_minimo,
+        id,
+        fecha_actualizacion: today(),
+      };
       set('inventario', inventario);
+      syncSave('inventario', inventario[idx]);
       return { ok: true, producto: inventario[idx] };
     },
 
@@ -695,15 +881,21 @@ const DB = (() => {
       const inventario = get('inventario');
       const idx = inventario.findIndex(p => p.id === id);
       if (idx === -1) return { error: 'Producto no encontrado' };
-      const delta = tipo === 'entrada' ? parseInt(cantidad) : -parseInt(cantidad);
-      inventario[idx].cantidad = Math.max(0, inventario[idx].cantidad + delta);
+      const qty = toInt(cantidad, 0);
+      const actual = toInt(inventario[idx].cantidad, 0);
+      if (tipo !== 'entrada' && qty > actual) {
+        return { error: `No hay suficiente stock (disponible: ${actual} ${inventario[idx].unidad})` };
+      }
+      inventario[idx].cantidad = tipo === 'entrada' ? actual + qty : actual - qty;
       inventario[idx].fecha_actualizacion = today();
       set('inventario', inventario);
+      syncSave('inventario', inventario[idx]);
       return { ok: true, producto: inventario[idx] };
     },
 
     delete: (id) => {
       set('inventario', get('inventario').filter(p => p.id !== id));
+      syncDelete('inventario', id);
       return { ok: true };
     },
 
@@ -721,63 +913,57 @@ const DB = (() => {
   /* ==============================
      TAREAS CRUD (con Pipeline de Calzado)
   ============================== */
+  const ETAPAS = ['corte', 'guarnecido', 'soladura', 'emplantillado', 'listo'];
+
   const Tareas = {
+    ETAPAS,
+
     getAll: () => {
       const tareas = get('tareas');
       const usuarios = get('usuarios');
       const catalogo = get('catalogo');
       return tareas.map(t => ({
         ...t,
+        historial_etapas: Array.isArray(t.historial_etapas) ? t.historial_etapas : [],
         empleado: usuarios.find(u => u.id === t.usuario_id) || null,
         asignador: usuarios.find(u => u.id === t.asignado_por) || null,
         producto: catalogo.find(c => c.id === t.catalogo_id) || null,
       }));
     },
 
-    getByUsuario: (usuario_id) => {
-      const tareas = get('tareas').filter(t => t.usuario_id === usuario_id);
-      const usuarios = get('usuarios');
-      const catalogo = get('catalogo');
-      return tareas.map(t => ({
-        ...t,
-        asignador: usuarios.find(u => u.id === t.asignado_por) || null,
-        producto: catalogo.find(c => c.id === t.catalogo_id) || null,
-      }));
-    },
+    getByUsuario: (usuario_id) => Tareas.getAll().filter(t => t.usuario_id === usuario_id),
 
     create: (data) => {
       const tareas = get('tareas');
-      const dateVal = today();
+      const usuarioId = parseInt(data.usuario_id) || null;
+      const tallasLote = Array.isArray(data.tallas_lote) ? data.tallas_lote.map(Number) : [];
       const tarea = {
         id: nextId('tareas'),
         descripcion: data.descripcion.trim(),
-        usuario_id: parseInt(data.usuario_id) || null,
-        asignado_por: parseInt(data.asignado_por),
+        usuario_id: usuarioId,
+        asignado_por: parseInt(data.asignado_por) || null,
         estado: data.estado || 'pendiente',
         prioridad: data.prioridad || 'media',
         categoria: 'Producción',
         fecha_vencimiento: data.fecha_vencimiento,
-        fecha_creacion: dateVal,
+        fecha_creacion: today(),
 
         // Shoe characteristics
         catalogo_id: parseInt(data.catalogo_id),
-        talla: parseInt(data.talla),
+        talla: parseInt(data.talla) || tallasLote[0] || null,
+        tallas_lote: tallasLote,
         color: data.color || 'Negro',
         cantidad_pares: parseInt(data.cantidad_pares) || 1,
 
-        // Flow pipeline
-        etapa_actual: 'corte', // corte -> guarnecido -> soladura -> emplantillado -> listo
+        // Flow pipeline: corte -> guarnecido -> soladura -> emplantillado -> listo
+        etapa_actual: 'corte',
         historial_etapas: [
-          {
-            etapa: 'corte',
-            usuario_id: parseInt(data.usuario_id),
-            fecha_inicio: now(),
-            fecha_fin: null
-          }
+          { etapa: 'corte', usuario_id: usuarioId, fecha_inicio: now(), fecha_fin: null }
         ]
       };
       tareas.push(tarea);
       set('tareas', tareas);
+      syncSave('tareas', tarea);
       return { ok: true, tarea };
     },
 
@@ -787,12 +973,11 @@ const DB = (() => {
       if (idx === -1) return { error: 'Tarea no encontrada' };
       tareas[idx] = { ...tareas[idx], ...data, id };
       set('tareas', tareas);
+      syncSave('tareas', tareas[idx]);
       return { ok: true };
     },
 
-    cambiarEstado: (id, nuevoEstado) => {
-      return Tareas.update(id, { estado: nuevoEstado });
-    },
+    cambiarEstado: (id, nuevoEstado) => Tareas.update(id, { estado: nuevoEstado }),
 
     finalizarEtapaEmpleado: (id) => {
       const tareas = get('tareas');
@@ -800,9 +985,9 @@ const DB = (() => {
       if (idx === -1) return { error: 'Tarea no encontrada' };
 
       const t = tareas[idx];
+      t.historial_etapas = Array.isArray(t.historial_etapas) ? t.historial_etapas : [];
       t.estado = 'completada';
 
-      // Mark current stage end date in history
       const currentHistIdx = t.historial_etapas.findIndex(h => h.etapa === t.etapa_actual && !h.fecha_fin);
       if (currentHistIdx !== -1) {
         t.historial_etapas[currentHistIdx].fecha_fin = now();
@@ -810,6 +995,7 @@ const DB = (() => {
 
       tareas[idx] = t;
       set('tareas', tareas);
+      syncSave('tareas', t);
       return { ok: true, tarea: t };
     },
 
@@ -819,20 +1005,23 @@ const DB = (() => {
       if (idx === -1) return { error: 'Tarea no encontrada' };
 
       const t = tareas[idx];
-      const etapas = ['corte', 'guarnecido', 'soladura', 'emplantillado', 'listo'];
-      const currentIdx = etapas.indexOf(t.etapa_actual);
+      t.historial_etapas = Array.isArray(t.historial_etapas) ? t.historial_etapas : [];
+      const currentIdx = ETAPAS.indexOf(t.etapa_actual);
 
       if (currentIdx === -1 || t.etapa_actual === 'listo') {
         return { error: 'La tarea ya se encuentra en su etapa final o la etapa es inválida' };
       }
 
-      // Close current stage in history if it wasn't closed
+      const nextStage = ETAPAS[currentIdx + 1];
+      if (nextStage !== 'listo' && !parseInt(proximoUsuarioId)) {
+        return { error: 'Debes seleccionar al operario responsable para la siguiente etapa' };
+      }
+
       const currentHistIdx = t.historial_etapas.findIndex(h => h.etapa === t.etapa_actual && !h.fecha_fin);
       if (currentHistIdx !== -1) {
         t.historial_etapas[currentHistIdx].fecha_fin = now();
       }
 
-      const nextStage = etapas[currentIdx + 1];
       t.etapa_actual = nextStage;
 
       if (nextStage === 'listo') {
@@ -841,7 +1030,6 @@ const DB = (() => {
       } else {
         t.usuario_id = parseInt(proximoUsuarioId);
         t.estado = 'pendiente';
-
         t.historial_etapas.push({
           etapa: nextStage,
           usuario_id: parseInt(proximoUsuarioId),
@@ -852,11 +1040,13 @@ const DB = (() => {
 
       tareas[idx] = t;
       set('tareas', tareas);
+      syncSave('tareas', t);
       return { ok: true, tarea: t };
     },
 
     delete: (id) => {
       set('tareas', get('tareas').filter(t => t.id !== id));
+      syncDelete('tareas', id);
       return { ok: true };
     },
 
@@ -870,7 +1060,7 @@ const DB = (() => {
         pendientes: tareas.filter(t => t.estado === 'pendiente').length,
         en_progreso: tareas.filter(t => t.estado === 'en_progreso').length,
         completadas: tareas.filter(t => t.estado === 'completada').length,
-        vencidas: tareas.filter(t => t.estado !== 'completada' && t.fecha_vencimiento < today()).length,
+        vencidas: tareas.filter(t => t.estado !== 'completada' && t.fecha_vencimiento && t.fecha_vencimiento < today()).length,
       };
     },
   };
@@ -891,9 +1081,9 @@ const DB = (() => {
     create: (data) => {
       const notifs = get('notificaciones');
       const notif = {
-        id: notifs.length > 0 ? Math.max(...notifs.map(n => n.id)) + 1 : 1,
+        id: nextId('notificaciones'),
         para_usuario_id: data.para_usuario_id,
-        tipo: data.tipo || 'info', // 'tarea_asignada', 'tarea_completada', 'asignar_siguiente', 'info'
+        tipo: data.tipo || 'info', // 'tarea_asignada', 'tarea_completada', 'info'
         titulo: data.titulo || '',
         mensaje: data.mensaje || '',
         tarea_id: data.tarea_id || null,
@@ -902,32 +1092,43 @@ const DB = (() => {
       };
       notifs.push(notif);
       set('notificaciones', notifs);
+      syncCreate('notificaciones', notif);
       return { ok: true, notif };
     },
 
     markRead: (id) => {
       const notifs = get('notificaciones');
       const idx = notifs.findIndex(n => n.id === id);
-      if (idx !== -1) notifs[idx].leida = true;
-      set('notificaciones', notifs);
+      if (idx !== -1 && !notifs[idx].leida) {
+        notifs[idx].leida = true;
+        set('notificaciones', notifs);
+        syncSave('notificaciones', notifs[idx]);
+      }
       return { ok: true };
     },
 
     markAllRead: (usuario_id) => {
-      const notifs = get('notificaciones').map(n =>
-        n.para_usuario_id === usuario_id ? { ...n, leida: true } : n
-      );
+      const notifs = get('notificaciones');
+      notifs.forEach(n => {
+        if (n.para_usuario_id === usuario_id && !n.leida) {
+          n.leida = true;
+          syncSave('notificaciones', n);
+        }
+      });
       set('notificaciones', notifs);
       return { ok: true };
     },
 
     delete: (id) => {
       set('notificaciones', get('notificaciones').filter(n => n.id !== id));
+      syncDelete('notificaciones', id);
       return { ok: true };
     },
 
     deleteAll: (usuario_id) => {
-      set('notificaciones', get('notificaciones').filter(n => n.para_usuario_id !== usuario_id));
+      const notifs = get('notificaciones');
+      notifs.filter(n => n.para_usuario_id === usuario_id).forEach(n => syncDelete('notificaciones', n.id));
+      set('notificaciones', notifs.filter(n => n.para_usuario_id !== usuario_id));
       return { ok: true };
     },
   };
@@ -937,9 +1138,8 @@ const DB = (() => {
   ============================== */
   const Reportes = {
     getAll: () => {
-      const reportes = get('reportes');
       const usuarios = get('usuarios');
-      return reportes.map(r => ({
+      return get('reportes').map(r => ({
         ...r,
         generador: usuarios.find(u => u.id === r.generado_por) || null,
       }));
@@ -956,11 +1156,13 @@ const DB = (() => {
       };
       reportes.push(reporte);
       set('reportes', reportes);
+      syncSave('reportes', reporte);
       return { ok: true, reporte };
     },
 
     delete: (id) => {
       set('reportes', get('reportes').filter(r => r.id !== id));
+      syncDelete('reportes', id);
       return { ok: true };
     },
   };
@@ -971,9 +1173,13 @@ const DB = (() => {
   const Session = {
     get: () => JSON.parse(sessionStorage.getItem('rosalopz_session') || 'null'),
     set: (user) => sessionStorage.setItem('rosalopz_session', JSON.stringify(user)),
-    clear: () => sessionStorage.removeItem('rosalopz_session'),
-    isLoggedIn: () => !!Session.get(),
+    clear: () => {
+      sessionStorage.removeItem('rosalopz_session');
+      sessionStorage.removeItem(TOKEN_KEY);
+    },
+    // Con servidor, la sesión solo vale si también hay token
+    isLoggedIn: () => !!Session.get() && (!apiOnline || !!getToken()),
   };
 
-  return { init, Usuarios, Catalogo, Nominas, Inventario, Tareas, Reportes, Notificaciones, Session };
+  return { init, logout, isOnline: () => apiOnline, Usuarios, Catalogo, Nominas, Inventario, Tareas, Reportes, Notificaciones, Session };
 })();

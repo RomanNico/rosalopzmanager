@@ -73,16 +73,184 @@ function updateBreadcrumb(page) {
    AUTH
 ============================== */
 function checkAuth() {
-  const session = DB.Session.get();
-  if (session) {
-    currentUser = session;
+  const session = DB.Session.isLoggedIn() ? DB.Session.get() : null;
+  // Validar que el usuario de la sesión siga existiendo y tomar sus datos actuales (rol, cargo...)
+  const fresh = session ? DB.Usuarios.getById(session.id) : null;
+  if (fresh) {
+    const { password: _, ...safeUser } = fresh;
+    currentUser = { ...safeUser, rol: (safeUser.rol || '').toLowerCase() };
+    DB.Session.set(currentUser);
     showApp();
   } else {
+    DB.Session.clear();
     showAuth('login');
   }
 }
 
+function cerrarSesion() {
+  DB.logout();
+  currentUser = null;
+  passwordLoginTemporal = null;
+  document.getElementById('cambio-obligatorio-overlay')?.remove();
+  Modal.closeAll();
+  const notif = document.getElementById('notif-dropdown');
+  if (notif) notif.style.display = 'none';
+  notifPanelOpen = false;
+  showAuth('login');
+}
+
+/* ==============================
+   CONTRASEÑA TEMPORAL
+============================== */
+// Contraseña con la que se acaba de iniciar sesión (solo en memoria, para no volver a pedirla
+// en el cambio obligatorio). Se borra apenas se usa.
+let passwordLoginTemporal = null;
+
+// Ventana que obliga a crear una contraseña propia (no se puede cerrar, solo cerrar sesión)
+function mostrarCambioObligatorio() {
+  showAuth('login');
+  document.getElementById('cambio-obligatorio-overlay')?.remove();
+  const pedirActual = !passwordLoginTemporal;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'cambio-obligatorio-overlay';
+  overlay.className = 'modal-overlay active';
+  overlay.innerHTML = `
+    <div class="modal" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3 class="modal-title">🔐 Crea tu nueva contraseña</h3>
+      </div>
+      <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 0.9rem;">
+        Hola <strong>${Fmt.esc(currentUser.nombre.split(' ')[0])}</strong>, estás usando una contraseña temporal
+        asignada por el administrador. Por seguridad, crea una propia para continuar.
+      </p>
+      <form id="cambio-obligatorio-form" novalidate>
+        ${pedirActual ? `
+        <div class="form-group">
+          <label class="form-label" for="co-actual">Contraseña temporal *</label>
+          <input type="password" class="form-control" id="co-actual" autocomplete="current-password" />
+        </div>` : ''}
+        <div class="form-group">
+          <label class="form-label" for="co-nueva">Nueva contraseña *</label>
+          <input type="password" class="form-control" id="co-nueva" placeholder="Mínimo 6 caracteres" autocomplete="new-password" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="co-confirmar">Confirmar nueva contraseña *</label>
+          <input type="password" class="form-control" id="co-confirmar" autocomplete="new-password" />
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="co-salir">Cerrar sesión</button>
+          <button type="submit" class="btn btn-primary">💾 Guardar y continuar</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.querySelector(pedirActual ? '#co-actual' : '#co-nueva').focus();
+
+  overlay.querySelector('#co-salir').onclick = () => {
+    cerrarSesion();
+    Toast.info('Sesión cerrada');
+  };
+
+  overlay.querySelector('#cambio-obligatorio-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const actual = pedirActual ? overlay.querySelector('#co-actual').value : passwordLoginTemporal;
+    const nueva = overlay.querySelector('#co-nueva').value;
+    const confirmar = overlay.querySelector('#co-confirmar').value;
+
+    if (pedirActual && !actual) { Toast.error('Ingresa la contraseña temporal'); return; }
+    if (nueva.length < 6) { Toast.error('La nueva contraseña debe tener al menos 6 caracteres'); return; }
+    if (nueva !== confirmar) { Toast.error('Las contraseñas no coinciden'); return; }
+    if (nueva === actual) { Toast.error('La nueva contraseña debe ser diferente a la temporal'); return; }
+
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    const result = await DB.Usuarios.changePassword(currentUser.id, nueva, actual);
+    btn.disabled = false;
+    if (result.error) { Toast.error(result.error); return; }
+
+    passwordLoginTemporal = null;
+    currentUser = { ...currentUser, debe_cambiar_password: false };
+    DB.Session.set(currentUser);
+    overlay.remove();
+    Toast.success('¡Contraseña creada! Bienvenido/a 👋');
+    showApp();
+  };
+}
+
+// Admin: generar contraseña temporal para un usuario
+async function restablecerPassword(id) {
+  const u = DB.Usuarios.getById(id);
+  if (!u) return;
+  const ok = await Modal.confirm(
+    `Se generará una contraseña temporal para ${Fmt.esc(u.nombre)}. Su contraseña actual dejará de funcionar y deberá crear una nueva al entrar.`,
+    'Restablecer contraseña'
+  );
+  if (!ok) return;
+
+  const result = await DB.Usuarios.resetPassword(id);
+  if (result.error) { Toast.error(result.error); return; }
+  mostrarPasswordTemporal(u, result.temporal);
+  renderUsuarios();
+}
+
+// Muestra la contraseña temporal UNA sola vez, con botón para copiar
+function mostrarPasswordTemporal(usuario, temporal) {
+  document.getElementById('password-temporal-overlay')?.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'password-temporal-overlay';
+  overlay.className = 'modal-overlay active';
+  overlay.innerHTML = `
+    <div class="modal" style="max-width: 460px;">
+      <div class="modal-header">
+        <h3 class="modal-title">🔑 Contraseña temporal</h3>
+        <button class="modal-close" id="pt-x">✕</button>
+      </div>
+      <p style="color: var(--text-secondary); margin-bottom: 14px; font-size: 0.9rem;">
+        Entrégale esta contraseña a <strong>${Fmt.esc(usuario.nombre)}</strong>
+        (<span style="color:var(--text-muted);">${Fmt.esc(usuario.email)}</span>).
+      </p>
+      <div style="display:flex; gap:8px; align-items:center; margin-bottom: 14px;">
+        <input type="text" class="form-control" id="pt-valor" readonly value="${Fmt.esc(temporal)}"
+          style="font-family: 'Consolas', 'Courier New', monospace; font-size: 1.25rem; font-weight: 700; letter-spacing: 1px; text-align:center;" />
+        <button type="button" class="btn btn-primary" id="pt-copiar" style="white-space:nowrap;">📋 Copiar</button>
+      </div>
+      <div style="background: rgba(248,168,12,0.1); border: 1px solid rgba(248,168,12,0.3); border-radius: 8px; padding: 10px 12px; font-size: 0.8rem; color: var(--text-secondary);">
+        ⚠️ Por seguridad <strong>no se volverá a mostrar</strong>. Cuando ${Fmt.esc(usuario.nombre.split(' ')[0])} entre con ella,
+        el sistema le pedirá crear su propia contraseña.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" id="pt-listo">Listo</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.body.style.overflow = 'hidden';
+
+  const input = overlay.querySelector('#pt-valor');
+  input.addEventListener('focus', () => input.select());
+  overlay.querySelector('#pt-copiar').onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(temporal);
+      Toast.success('Contraseña copiada');
+    } catch (e) {
+      input.focus();
+      input.select();
+      Toast.info('Presiona Ctrl+C para copiarla');
+    }
+  };
+  const cerrar = () => { overlay.remove(); document.body.style.overflow = ''; };
+  overlay.querySelector('#pt-x').onclick = cerrar;
+  overlay.querySelector('#pt-listo').onclick = cerrar;
+}
+
 function showApp() {
+  // Con contraseña temporal no se entra a la app hasta crear una propia
+  if (currentUser?.debe_cambiar_password) {
+    mostrarCambioObligatorio();
+    return;
+  }
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app-screen').style.display = 'flex';
   setupSidebar();
@@ -204,13 +372,13 @@ function renderDashboard() {
   // Alerts
   const alertsContainer = document.getElementById('dashboard-alerts');
   const lowStock = DB.Inventario.getLowStock();
-  const vencidas = DB.Tareas.getAll().filter(t => t.estado !== 'completada' && t.fecha_vencimiento < new Date().toISOString().split('T')[0]);
+  const vencidas = DB.Tareas.getAll().filter(t => t.estado !== 'completada' && t.fecha_vencimiento < TimeHelper.getBogotaToday());
 
   let alertsHtml = '';
   if (lowStock.length > 0) {
     alertsHtml += `<div class="dash-alert dash-alert-warning">
       <span class="dash-alert-icon">⚠️</span>
-      <div><strong>${lowStock.length} producto(s)</strong> con stock bajo o agotado: ${lowStock.map(p => p.nombre).slice(0,3).join(', ')}${lowStock.length > 3 ? '...' : ''}</div>
+      <div><strong>${lowStock.length} producto(s)</strong> con stock bajo o agotado: ${lowStock.map(p => Fmt.esc(p.nombre)).slice(0,3).join(', ')}${lowStock.length > 3 ? '...' : ''}</div>
     </div>`;
   }
   if (vencidas.length > 0) {
@@ -241,16 +409,23 @@ function renderDashboard() {
     });
   }
 
-  // Bar chart for nominas
+  // Bar chart for nominas: total neto real de los últimos 6 meses (antes eran números aleatorios)
   const nominaCanvas = document.getElementById('nomina-chart');
   if (nominaCanvas) {
-    const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'];
-    Charts.drawBar(nominaCanvas, meses.map((label, i) => ({
-      label,
-      value: Math.floor(3000000 + Math.random() * 1500000),
+    const nombresMes = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const [anioHoy, mesHoy] = TimeHelper.getBogotaToday().split('-').map(Number);
+    const ultimosMeses = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(anioHoy, mesHoy - 1 - i, 1);
+      ultimosMeses.push({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, label: nombresMes[d.getMonth()] });
+    }
+    const nominas = DB.Nominas.getAll();
+    Charts.drawBar(nominaCanvas, ultimosMeses.map(m => ({
+      label: m.label,
+      value: nominas.filter(n => String(n.fecha || '').startsWith(m.key)).reduce((s, n) => s + n.neto, 0),
       color: '#4361ee',
       color2: '#3a0ca3',
-    })), { pad: 20, barWidth: 24 });
+    })), { pad: 20, barWidth: 24, formatValue: Fmt.compact });
   }
 
   // Top tasks
@@ -268,11 +443,11 @@ function renderRecentActivities() {
   container.innerHTML = tareas.map(t => `
     <div class="activity-item" style="cursor: pointer;" onclick="verDetalleTarea(${t.id})">
       <div class="avatar" style="background: ${Fmt.avatarColor(t.usuario_id || 1)}; width:36px; height:36px; font-size:0.8rem; flex-shrink:0;">
-        ${Fmt.initials(t.empleado?.nombre || 'S')}
+        ${Fmt.esc(Fmt.initials(t.empleado?.nombre || 'S'))}
       </div>
       <div class="activity-body">
-        <div class="activity-text">${t.empleado?.nombre || 'Sistema'}: <strong>${t.descripcion.substring(0, 40)}${t.descripcion.length > 40 ? '...' : ''}</strong></div>
-        <div class="activity-meta">Etapa: <span class="badge badge-primary" style="font-size: 0.65rem;">${t.etapa_actual.toUpperCase()}</span> · ${Fmt.estadoTarea(t.estado)}</div>
+        <div class="activity-text">${Fmt.esc(t.empleado?.nombre || 'Sistema')}: <strong>${Fmt.esc(t.descripcion.substring(0, 40))}${t.descripcion.length > 40 ? '...' : ''}</strong></div>
+        <div class="activity-meta">Etapa: <span class="badge badge-primary" style="font-size: 0.65rem;">${(t.etapa_actual || '').toUpperCase()}</span> · ${Fmt.estadoTarea(t.estado)}</div>
       </div>
     </div>
   `).join('');
@@ -290,10 +465,10 @@ function renderTopTasks() {
     <div class="task-mini-item" style="cursor: pointer;" onclick="verDetalleTarea(${t.id})">
       <div class="task-mini-dot" style="background: ${t.prioridad === 'alta' ? 'var(--danger)' : t.prioridad === 'media' ? 'var(--warning)' : 'var(--success)'}"></div>
       <div class="task-mini-body">
-        <div class="task-mini-text">${t.descripcion.substring(0, 48)}...</div>
-        <div class="task-mini-meta">${t.empleado?.nombre || 'Por Asignar'} · Vence: ${Fmt.date(t.fecha_vencimiento)}</div>
+        <div class="task-mini-text">${Fmt.esc(t.descripcion.substring(0, 48))}${t.descripcion.length > 48 ? '...' : ''}</div>
+        <div class="task-mini-meta">${Fmt.esc(t.empleado?.nombre || 'Por Asignar')} · Vence: ${Fmt.date(t.fecha_vencimiento)}</div>
       </div>
-      <span class="badge badge-info" style="font-size:0.6rem;">${t.etapa_actual.toUpperCase()}</span>
+      <span class="badge badge-info" style="font-size:0.6rem;">${(t.etapa_actual || '').toUpperCase()}</span>
     </div>
   `).join('');
 }
@@ -313,28 +488,22 @@ function renderCatalogo() {
   const filterTalla = document.getElementById('catalogo-filtro-talla');
   const filterColor = document.getElementById('catalogo-filtro-color');
 
-  if (filterTalla && filterTalla.options.length <= 1) {
-    const allTallas = [...new Set(productos.flatMap(p => p.tallas))].sort((a,b)=>a-b);
-    allTallas.forEach(t => {
-      const opt = document.createElement('option');
-      opt.value = t;
-      opt.textContent = `Talla ${t}`;
-      filterTalla.appendChild(opt);
-    });
-  }
-  if (filterColor && filterColor.options.length <= 1) {
-    const allColores = [...new Set(productos.flatMap(p => p.colores))].sort();
-    allColores.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c;
-      opt.textContent = c;
-      filterColor.appendChild(opt);
-    });
-  }
+  // Se reconstruyen siempre para incluir tallas/colores de diseños nuevos (antes solo se llenaban una vez)
+  const rebuildOptions = (select, values, labelFn) => {
+    if (!select) return;
+    const first = select.options[0] ? select.options[0].outerHTML : '<option value="">Todos</option>';
+    select.innerHTML = first + values.map(v => `<option value="${Fmt.esc(v)}">${Fmt.esc(labelFn(v))}</option>`).join('');
+    select.value = values.map(String).includes(select.dataset.selected || '') ? select.dataset.selected : '';
+  };
+  if (filterTalla) filterTalla.dataset.selected = catalogoFiltroTalla;
+  if (filterColor) filterColor.dataset.selected = catalogoFiltroColor;
+  rebuildOptions(filterTalla, [...new Set(productos.flatMap(p => p.tallas))].sort((a, b) => a - b), t => `Talla ${t}`);
+  rebuildOptions(filterColor, [...new Set(productos.flatMap(p => p.colores))].sort(), c => c);
 
   // Apply filters
   if (catalogoSearch) {
-    productos = productos.filter(p => p.referencia.toLowerCase().includes(catalogoSearch.toLowerCase()) || p.nombre.toLowerCase().includes(catalogoSearch.toLowerCase()));
+    const q = catalogoSearch.toLowerCase();
+    productos = productos.filter(p => (p.referencia || '').toLowerCase().includes(q) || (p.nombre || '').toLowerCase().includes(q));
   }
   if (catalogoFiltroTalla) {
     productos = productos.filter(p => p.tallas.includes(parseInt(catalogoFiltroTalla)));
@@ -354,20 +523,20 @@ function renderCatalogo() {
   container.innerHTML = productos.map(p => `
     <div class="catalog-card glass">
       <div class="catalog-img-container" onclick="verDetalleCatalogo(${p.id})" style="cursor:pointer;">
-        <img src="${p.foto || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=400&q=80'}" class="catalog-img" alt="${p.nombre}" onerror="this.src='https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=400&q=80'" />
+        <img src="${Fmt.esc(p.foto || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=400&q=80')}" class="catalog-img" alt="${Fmt.esc(p.nombre)}" onerror="this.src='https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=400&q=80'" />
       </div>
       <div class="catalog-card-body">
-        <div class="catalog-ref">${p.referencia}</div>
-        <h3 class="catalog-title" onclick="verDetalleCatalogo(${p.id})" style="cursor:pointer; font-size:1.15rem; font-weight:700;">${p.nombre}</h3>
+        <div class="catalog-ref">${Fmt.esc(p.referencia)}</div>
+        <h3 class="catalog-title" onclick="verDetalleCatalogo(${p.id})" style="cursor:pointer; font-size:1.15rem; font-weight:700;">${Fmt.esc(p.nombre)}</h3>
         <div class="catalog-price">${Fmt.currency(p.precio)}</div>
         <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom: 12px; display:flex; flex-direction:column; gap:4px;">
-          <div>🧬 Material: <strong>${p.material || 'N/A'}</strong></div>
-          <div>👟 Suela: <strong>${p.suela || 'N/A'}</strong></div>
+          <div>🧬 Material: <strong>${Fmt.esc(p.material || 'N/A')}</strong></div>
+          <div>👟 Suela: <strong>${Fmt.esc(p.suela || 'N/A')}</strong></div>
         </div>
         
         <div class="catalog-badges">
           <div style="width:100%; display:flex; flex-wrap:wrap; gap:4px; margin-bottom: 6px;">
-            ${p.colores.map(c => `<span class="badge badge-info" style="font-size:0.65rem; padding: 2px 6px;">${c}</span>`).join('')}
+            ${p.colores.map(c => `<span class="badge badge-info" style="font-size:0.65rem; padding: 2px 6px;">${Fmt.esc(c)}</span>`).join('')}
           </div>
           <div style="width:100%; display:flex; flex-wrap:wrap; gap:4px;">
             ${p.tallas.slice(0, 6).map(t => `<span class="catalog-badge-tallas">${t}</span>`).join('')}
@@ -473,23 +642,23 @@ function verDetalleCatalogo(id) {
   const p = DB.Catalogo.getById(id);
   if (!p) return;
 
-  document.getElementById('cat-detail-title').textContent = `${p.nombre} (${p.referencia})`;
+  document.getElementById('cat-detail-title').textContent = `${Fmt.esc(p.nombre)} (${Fmt.esc(p.referencia)})`;
   
   const body = document.getElementById('catalogo-detalle-body');
   body.innerHTML = `
     <div style="text-align:center; margin-bottom:20px; border-radius:var(--radius-md); overflow:hidden; background:#11112b;">
-      <img src="${p.foto || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=400&q=80'}" style="max-height:260px; object-fit:contain;" alt="${p.nombre}" onerror="this.src='https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=400&q=80'" />
+      <img src="${Fmt.esc(p.foto || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=400&q=80')}" style="max-height:260px; object-fit:contain;" alt="${Fmt.esc(p.nombre)}" onerror="this.src='https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=400&q=80'" />
     </div>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
       <div class="glass" style="padding:12px;"><span style="font-size:0.75rem; color:var(--text-muted);">PRECIO VENTA</span><div style="font-size:1.15rem; font-weight:800; color:var(--success);">${Fmt.currency(p.precio)}</div></div>
-      <div class="glass" style="padding:12px;"><span style="font-size:0.75rem; color:var(--text-muted);">REFERENCIA</span><div style="font-size:1.15rem; font-weight:800; color:var(--accent);">${p.referencia}</div></div>
+      <div class="glass" style="padding:12px;"><span style="font-size:0.75rem; color:var(--text-muted);">REFERENCIA</span><div style="font-size:1.15rem; font-weight:800; color:var(--accent);">${Fmt.esc(p.referencia)}</div></div>
     </div>
     <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:16px;" class="glass; padding:16px;">
-      <div>🧬 <strong>Material:</strong> ${p.material || 'N/A'}</div>
-      <div>👟 <strong>Suela:</strong> ${p.suela || 'N/A'}</div>
-      <div>🎨 <strong>Colores:</strong> ${p.colores.join(', ')}</div>
+      <div>🧬 <strong>Material:</strong> ${Fmt.esc(p.material || 'N/A')}</div>
+      <div>👟 <strong>Suela:</strong> ${Fmt.esc(p.suela || 'N/A')}</div>
+      <div>🎨 <strong>Colores:</strong> ${Fmt.esc(p.colores.join(', '))}</div>
       <div>📏 <strong>Tallas:</strong> ${p.tallas.join(', ')}</div>
-      ${p.descripcion ? `<div style="margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.06); color:var(--text-secondary); font-style:italic;">"${p.descripcion}"</div>` : ''}
+      ${p.descripcion ? `<div style="margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.06); color:var(--text-secondary); font-style:italic;">"${Fmt.esc(p.descripcion)}"</div>` : ''}
     </div>
     <div style="text-align:right;">
       <button class="btn btn-outline" onclick="Modal.close('catalogo-detalle-modal')">Cerrar</button>
@@ -532,7 +701,7 @@ function actualizarFiltrosPeriodo() {
   } else if (periodo === 'mes') {
     const mesesValidos = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
     const months = [...new Set(nominas.map(n => {
-      const d = new Date(n.fecha);
+      const d = new Date(n.fecha + 'T00:00:00');
       return `${d.getFullYear()}-${String(d.getMonth()).padStart(2,'0')}`;
     }))].sort().reverse();
     const select = document.createElement('select');
@@ -548,7 +717,7 @@ function actualizarFiltrosPeriodo() {
     };
     container.appendChild(select);
   } else if (periodo === 'año') {
-    const years = [...new Set(nominas.map(n => new Date(n.fecha).getFullYear()))].sort().reverse();
+    const years = [...new Set(nominas.map(n => new Date(n.fecha + 'T00:00:00').getFullYear()))].sort().reverse();
     const select = document.createElement('select');
     select.className = 'form-control';
     select.style.width = '140px';
@@ -587,11 +756,11 @@ function renderNominas() {
     } else if (nominaFiltroPeriodo === 'mes') {
       const [year, monthIdx] = nominaFiltroPeriodoDetalle.split('-');
       nominas = nominas.filter(n => {
-        const d = new Date(n.fecha);
+        const d = new Date(n.fecha + 'T00:00:00');
         return d.getFullYear() === parseInt(year) && d.getMonth() === parseInt(monthIdx);
       });
     } else if (nominaFiltroPeriodo === 'año') {
-      nominas = nominas.filter(n => new Date(n.fecha).getFullYear() === parseInt(nominaFiltroPeriodoDetalle));
+      nominas = nominas.filter(n => new Date(n.fecha + 'T00:00:00').getFullYear() === parseInt(nominaFiltroPeriodoDetalle));
     }
   }
 
@@ -620,10 +789,10 @@ function renderNominas() {
     <tr>
       <td>
         <div style="display:flex; align-items:center; gap:10px;">
-          <div class="avatar" style="background:${Fmt.avatarColor(n.usuario_id)}; width:34px; height:34px; font-size:0.78rem;">${Fmt.initials(n.usuario?.nombre || '?')}</div>
+          <div class="avatar" style="background:${Fmt.avatarColor(n.usuario_id)}; width:34px; height:34px; font-size:0.78rem;">${Fmt.esc(Fmt.initials(n.usuario?.nombre || '?'))}</div>
           <div>
-            <div style="font-weight:600;">${n.usuario?.nombre || 'N/A'}</div>
-            <div style="font-size:0.78rem; color:var(--text-muted);">${n.usuario?.cargo || ''}</div>
+            <div style="font-weight:600;">${Fmt.esc(n.usuario?.nombre || 'N/A')}</div>
+            <div style="font-size:0.78rem; color:var(--text-muted);">${Fmt.esc(n.usuario?.cargo || '')}</div>
           </div>
         </div>
       </td>
@@ -634,8 +803,8 @@ function renderNominas() {
       <td><strong style="color:var(--accent);">${Fmt.currency(n.neto)}</strong></td>
       <td>${Fmt.estadoNomina(n.estado)}</td>
       <td style="min-width:120px;">
-        ${n.medio_pago ? `<span class="badge badge-info">${n.medio_pago}</span>` : '<span class="text-muted">-</span>'}
-        ${n.comprobante ? `<div style="margin-top:6px;"><a href="${n.comprobante}" target="_blank"><img src="${n.comprobante}" style="width:68px; height:auto; border-radius:6px; border:1px solid var(--border);" alt="comprobante"/></a></div>` : ''}
+        ${n.medio_pago ? `<span class="badge badge-info">${Fmt.esc(n.medio_pago)}</span>` : '<span class="text-muted">-</span>'}
+        ${n.comprobante ? `<div style="margin-top:6px;"><a href="${Fmt.esc(n.comprobante)}" target="_blank"><img src="${Fmt.esc(n.comprobante)}" style="width:68px; height:auto; border-radius:6px; border:1px solid var(--border);" alt="comprobante"/></a></div>` : ''}
       </td>
       <td>
         <div>${Fmt.date(n.fecha)}</div>
@@ -660,13 +829,13 @@ function renderNominas() {
 
 function openAddNomina() {
   const empleados = DB.Usuarios.getEmpleados();
-  const selectHtml = empleados.map(e => `<option value="${e.id}">${e.nombre} (${e.cargo})</option>`).join('');
+  const selectHtml = empleados.map(e => `<option value="${e.id}">${Fmt.esc(e.nombre)} (${Fmt.esc(e.cargo)})</option>`).join('');
   document.getElementById('nomina-usuario-select').innerHTML = selectHtml;
   document.getElementById('nomina-form').reset();
   document.getElementById('nomina-modal-title').textContent = 'Nueva Nómina';
   document.getElementById('nomina-id-edit').value = '';
   document.getElementById('nomina-salario').value = '1423500';
-  document.getElementById('nomina-fecha').value = new Date().toISOString().split('T')[0];
+  document.getElementById('nomina-fecha').value = TimeHelper.getBogotaToday();
   Modal.open('nomina-modal');
 }
 
@@ -675,7 +844,7 @@ function editNomina(id) {
   const n = nominas.find(x => x.id === id);
   if (!n) return;
   const empleados = DB.Usuarios.getEmpleados();
-  const selectHtml = empleados.map(e => `<option value="${e.id}" ${e.id === n.usuario_id ? 'selected' : ''}>${e.nombre} (${e.cargo})</option>`).join('');
+  const selectHtml = empleados.map(e => `<option value="${e.id}" ${e.id === n.usuario_id ? 'selected' : ''}>${Fmt.esc(e.nombre)} (${Fmt.esc(e.cargo)})</option>`).join('');
   document.getElementById('nomina-usuario-select').innerHTML = selectHtml;
   document.getElementById('nomina-id-edit').value = id;
   document.getElementById('nomina-modal-title').textContent = 'Editar Nómina';
@@ -818,7 +987,8 @@ function renderInventario() {
   if (addBtn) addBtn.style.display = isEmpleado ? 'none' : '';
 
   if (invSearch) {
-    items = items.filter(p => p.nombre.toLowerCase().includes(invSearch.toLowerCase()) || p.proveedor.toLowerCase().includes(invSearch.toLowerCase()));
+    const q = invSearch.toLowerCase();
+    items = items.filter(p => (p.nombre || '').toLowerCase().includes(q) || (p.proveedor || '').toLowerCase().includes(q));
   }
   if (invCategoria) {
     items = items.filter(p => p.categoria === invCategoria);
@@ -834,18 +1004,18 @@ function renderInventario() {
 
   tbody.innerHTML = items.map(p => `
     <tr>
-      <td><strong>${p.nombre}</strong></td>
-      <td><span class="badge badge-info">${p.categoria}</span></td>
+      <td><strong>${Fmt.esc(p.nombre)}</strong></td>
+      <td><span class="badge badge-info">${Fmt.esc(p.categoria)}</span></td>
       <td>
         <div style="display:flex; align-items:center; gap:8px;">
           <strong style="font-size:1.1rem;">${p.cantidad}</strong>
-          <span style="color:var(--text-muted); font-size:0.8rem;">${p.unidad}</span>
+          <span style="color:var(--text-muted); font-size:0.8rem;">${Fmt.esc(p.unidad)}</span>
         </div>
         <div class="progress-bar-wrap" style="margin-top:4px; width:80px;">
           <div class="progress-bar-fill" style="width:${Math.min(100, (p.cantidad / (p.stock_minimo * 3)) * 100)}%; background: ${p.cantidad <= p.stock_minimo ? 'var(--danger)' : 'linear-gradient(90deg, var(--success), #06d6a0)'};"></div>
         </div>
       </td>
-      <td>${p.proveedor}</td>
+      <td>${Fmt.esc(p.proveedor)}</td>
       <td>${Fmt.currency(p.precio_unitario)}</td>
       <td>${Fmt.currency(p.cantidad * p.precio_unitario)}</td>
       <td>${Fmt.stockBadge(p.cantidad, p.stock_minimo)}</td>
@@ -929,7 +1099,7 @@ function handleStockAdjust(e) {
   const p = DB.Inventario.getById(id);
   const result = DB.Inventario.ajustarStock(id, qty, tipo);
   if (result.error) { Toast.error(result.error); return; }
-  Toast.success(`Stock ${tipo === 'entrada' ? 'incrementado' : 'reducido'} en ${qty} ${p.unidad}`);
+  Toast.success(`Stock ${tipo === 'entrada' ? 'incrementado' : 'reducido'} en ${qty} ${Fmt.esc(p.unidad)}`);
   Modal.close('stock-adjust-modal');
   renderInventario();
 }
@@ -997,11 +1167,11 @@ function renderTareas() {
   }
 
   const etapaCargoMap = { corte: 'Cortador', guarnecido: 'Guarnecedor', soladura: 'Solador', emplantillado: 'Emplantillador', listo: 'Finalizado' };
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = TimeHelper.getBogotaToday();
 
   container.innerHTML = tareas.map(t => {
     const isOverdue = t.estado !== 'completada' && t.fecha_vencimiento < todayStr;
-    const prodName = t.producto ? `${t.producto.nombre} (${t.producto.referencia})` : 'Diseño Desconocido';
+    const prodName = t.producto ? `${Fmt.esc(t.producto.nombre)} (${Fmt.esc(t.producto.referencia)})` : 'Diseño Desconocido';
     const labelCargo = etapaCargoMap[t.etapa_actual] || t.etapa_actual;
 
     // Needs-assignment: task state is 'completada' but stage isn't 'listo' (waiting for supervisor)
@@ -1025,15 +1195,15 @@ function renderTareas() {
     <div class="tarea-card glass ${statusClass} ${isOverdue ? 'overdue' : ''} ${needsAssignment ? 'needs-assignment' : ''}" style="padding: 20px; transition: var(--transition); position:relative; cursor:pointer;" onclick="verDetalleTarea(${t.id})">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
         ${Fmt.prioridadBadge(t.prioridad)}
-        <span class="badge ${needsAssignment ? 'badge-warning' : 'badge-primary'}" style="font-size:0.68rem;">Etapa: ${labelCargo}</span>
+        <span class="badge ${needsAssignment ? 'badge-warning' : 'badge-primary'}" style="font-size:0.68rem;">Etapa: ${Fmt.esc(labelCargo)}</span>
       </div>
-      <h4 style="font-size:0.95rem; font-weight:600; margin-bottom:8px; line-height:1.4;">${t.descripcion}</h4>
+      <h4 style="font-size:0.95rem; font-weight:600; margin-bottom:8px; line-height:1.4;">${Fmt.esc(t.descripcion)}</h4>
       <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:12px;">
-        <div>💟 <strong>${prodName}</strong></div>
-        <div>📐 Tallas: ${tallasStr} · Color: ${t.color} · Cant: ${t.cantidad_pares} pares</div>
+        <div>💟 <strong>${Fmt.esc(prodName)}</strong></div>
+        <div>📐 Tallas: ${Fmt.esc(tallasStr)} · Color: ${Fmt.esc(t.color)} · Cant: ${t.cantidad_pares} pares</div>
       </div>
       <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:14px; display:flex; flex-direction:column; gap:4px;">
-        <div>👤 Asignado: <strong>${t.empleado?.nombre || 'Por asignar'}</strong></div>
+        <div>👤 Asignado: <strong>${Fmt.esc(t.empleado?.nombre || 'Por asignar')}</strong></div>
         <div style="${isOverdue ? 'color:var(--danger);' : ''}">📅 Vence: ${Fmt.date(t.fecha_vencimiento)} ${isOverdue ? '⚠️ VENCIDA' : ''}</div>
         <div>⏱️ Creada: ${Fmt.date(t.fecha_creacion)}</div>
       </div>
@@ -1045,7 +1215,7 @@ function renderTareas() {
       </div>
       ${needsAssignment ? `
         <div class="assignment-banner">
-          🚨 PENDIENTE: Asignar ${nextCargo} para siguiente etapa
+          🚨 PENDIENTE: Asignar ${Fmt.esc(nextCargo)} para siguiente etapa
         </div>
       ` : ''}
     </div>`;
@@ -1062,7 +1232,7 @@ function openAddTarea() {
     return;
   }
 
-  selectCalzado.innerHTML = catalog.map(p => `<option value="${p.id}">${p.nombre} (${p.referencia})</option>`).join('');
+  selectCalzado.innerHTML = catalog.map(p => `<option value="${p.id}">${Fmt.esc(p.nombre)} (${Fmt.esc(p.referencia)})</option>`).join('');
   
   // Filter employees showing only Cortadores at start
   const cortadores = DB.Usuarios.getEmpleadosPorCargo('Cortador');
@@ -1070,7 +1240,7 @@ function openAddTarea() {
   if (cortadores.length === 0) {
     selectEmp.innerHTML = `<option value="">(Sin Cortadores registrados)</option>`;
   } else {
-    selectEmp.innerHTML = cortadores.map(e => `<option value="${e.id}">${e.nombre}</option>`).join('');
+    selectEmp.innerHTML = cortadores.map(e => `<option value="${e.id}">${Fmt.esc(e.nombre)}</option>`).join('');
   }
 
   document.getElementById('tarea-form').reset();
@@ -1080,9 +1250,7 @@ function openAddTarea() {
   actualizarCamposCalzadoTarea();
   
   // Set default due date: one week from now
-  const nextWeek = new Date();
-  nextWeek.setDate(nextWeek.getDate() + 7);
-  document.getElementById('tarea-vencimiento').value = nextWeek.toISOString().split('T')[0];
+  document.getElementById('tarea-vencimiento').value = TimeHelper.addDays(TimeHelper.getBogotaToday(), 7);
 
   Modal.open('tarea-modal');
 }
@@ -1129,7 +1297,7 @@ function actualizarCamposCalzadoTarea() {
   if (!p) return;
 
   const selectColor = document.getElementById('tarea-color');
-  selectColor.innerHTML = p.colores.map(c => `<option value="${c}">${c}</option>`).join('');
+  selectColor.innerHTML = p.colores.map(c => `<option value="${Fmt.esc(c)}">${Fmt.esc(c)}</option>`).join('');
 
   // Render tallas buttons for multi-select
   renderTallasLoteBtns(p.tallas, []);
@@ -1198,14 +1366,16 @@ function verDetalleTarea(id) {
   if (!t) return;
 
   const userCanManage = ((currentUser.rol || '').toLowerCase() === 'administrador');
-  const cargoFiltroMap = { corte: 'Cortador', guarnecido: 'Guarnecedor', soladura: 'Solador', emplantillador: 'Emplantillador', listo: 'Finalizado' };
-  
+  // OJO: la etapa se llama 'emplantillado' (así la guarda db.js). Antes aquí decía 'emplantillador'
+  // y el flujo se rompía al llegar a esa etapa.
+  const cargoFiltroMap = { corte: 'Cortador', guarnecido: 'Guarnecedor', soladura: 'Solador', emplantillado: 'Emplantillador', listo: 'Finalizado' };
+
   // Render timeline stepper
   const etapas = [
     { key: 'corte', label: 'Corte', cargo: 'Cortador' },
     { key: 'guarnecido', label: 'Guarnecido', cargo: 'Guarnecedor' },
     { key: 'soladura', label: 'Soladura', cargo: 'Solador' },
-    { key: 'emplantillador', label: 'Emplantillado', cargo: 'Emplantillador' },
+    { key: 'emplantillado', label: 'Emplantillado', cargo: 'Emplantillador' },
     { key: 'listo', label: 'Entrega', cargo: '' }
   ];
 
@@ -1228,21 +1398,21 @@ function verDetalleTarea(id) {
     // Find history info
     const hist = t.historial_etapas.find(h => h.etapa === et.key);
     const workerName = hist ? (DB.Usuarios.getById(hist.usuario_id)?.nombre || 'Trabajador') : '';
-    const dateLabel = hist ? Fmt.date(hist.fecha_inicio.split('T')[0]) : '';
+    const dateLabel = hist?.fecha_inicio ? Fmt.date(String(hist.fecha_inicio).split('T')[0]) : '';
     const iconStr = (i < currentIdx || (i === currentIdx && t.estado === 'completada')) ? '✓' : String(i + 1);
 
     return `
       <div class="pipeline-step ${stateClass}">
         <div class="step-circle">${iconStr}</div>
-        <div class="step-label">${et.label}</div>
-        ${workerName ? `<div class="step-employee">${workerName}</div>` : ''}
+        <div class="step-label">${Fmt.esc(et.label)}</div>
+        ${workerName ? `<div class="step-employee">${Fmt.esc(workerName)}</div>` : ''}
         ${dateLabel ? `<div class="step-date">${dateLabel}</div>` : ''}
       </div>
     `;
   }).join('');
 
   // Render detail details
-  const prodName = t.producto ? `${t.producto.nombre} (${t.producto.referencia})` : 'Desconocido';
+  const prodName = t.producto ? `${Fmt.esc(t.producto.nombre)} (${Fmt.esc(t.producto.referencia)})` : 'Desconocido';
   const imgUrl = t.producto?.foto || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=400&q=80';
   
   let actionPanelHtml = '';
@@ -1261,28 +1431,37 @@ function verDetalleTarea(id) {
   } else if (isAssignee && t.estado !== 'completada') {
     actionPanelHtml = `
       <div class="glass" style="padding:16px; margin-top:20px; text-align:center;">
-        <h4 style="font-weight:600; margin-bottom:8px;">🛠️ Panel de Operario (${currentUser.cargo})</h4>
+        <h4 style="font-weight:600; margin-bottom:8px;">🛠️ Panel de Operario (${Fmt.esc(currentUser.cargo)})</h4>
         <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:12px;">Una vez termines de fabricar/procesar el lote en esta etapa, confírmalo abajo.</p>
         <button class="btn btn-success" style="width:100%;" onclick="finalizarEtapaEmpleado(${t.id})">✔️ Completar Mi Etapa</button>
       </div>
     `;
   } else if (t.estado === 'completada' && t.etapa_actual !== 'listo') {
-    if (userCanManage) {
+    if (userCanManage && etapas[currentIdx + 1]?.key === 'listo') {
+      // Última etapa completada: no hay otro operario, solo se cierra el lote
+      actionPanelHtml = `
+        <div class="glass" style="padding:16px; margin-top:20px; border-color:rgba(6,214,160,0.3);">
+          <h4 style="font-weight:600; margin-bottom:8px; color:var(--success);">🎯 Control de Calidad Final</h4>
+          <p style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:12px;">La etapa de <strong>${Fmt.esc(etapas[currentIdx].label)}</strong> ha sido completada. Confirma que el lote quedó listo para entrega.</p>
+          <button class="btn btn-success" style="width:100%;" onclick="avanzarEtapaTarea(${t.id})">📦 Marcar lote como Listo para Entrega</button>
+        </div>
+      `;
+    } else if (userCanManage && currentIdx >= 0) {
       const nextEtapa = etapas[currentIdx + 1];
       const empleadosCargo = DB.Usuarios.getEmpleadosPorCargo(nextEtapa.cargo);
-      const optionsHtml = empleadosCargo.map(e => `<option value="${e.id}">${e.nombre}</option>`).join('');
+      const optionsHtml = empleadosCargo.map(e => `<option value="${e.id}">${Fmt.esc(e.nombre)}</option>`).join('');
       
       actionPanelHtml = `
         <div class="glass" style="padding:16px; margin-top:20px; border-color:rgba(248,168,12,0.3);">
           <h4 style="font-weight:600; margin-bottom:8px; color:var(--secondary);">🎯 Control de Calidad / Entrega de Lote</h4>
-          <p style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:12px;">La etapa de <strong>${etapas[currentIdx].label}</strong> ha sido completada. Asigna el lote al siguiente responsable de la etapa de <strong>${nextEtapa.label}</strong>.</p>
+          <p style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:12px;">La etapa de <strong>${Fmt.esc(etapas[currentIdx].label)}</strong> ha sido completada. Asigna el lote al siguiente responsable de la etapa de <strong>${Fmt.esc(nextEtapa.label)}</strong>.</p>
           
           <div class="form-group" style="margin-bottom:12px;">
-            <label class="form-label" style="font-size:0.75rem;">Siguiente responsable (${nextEtapa.cargo}) *</label>
-            <select class="form-control" id="next-responsable-select">${optionsHtml || `<option value="">(No hay empleados registrados como ${nextEtapa.cargo})</option>`}</select>
+            <label class="form-label" style="font-size:0.75rem;">Siguiente responsable (${Fmt.esc(nextEtapa.cargo)}) *</label>
+            <select class="form-control" id="next-responsable-select">${optionsHtml || `<option value="">(No hay empleados registrados como ${Fmt.esc(nextEtapa.cargo)})</option>`}</select>
           </div>
           
-          <button class="btn btn-primary" style="width:100%;" ${empleadosCargo.length === 0 ? 'disabled' : ''} onclick="avanzarEtapaTarea(${t.id})">🚀 Enviar a Etapa de ${nextEtapa.label}</button>
+          <button class="btn btn-primary" style="width:100%;" ${empleadosCargo.length === 0 ? 'disabled' : ''} onclick="avanzarEtapaTarea(${t.id})">🚀 Enviar a Etapa de ${Fmt.esc(nextEtapa.label)}</button>
         </div>
       `;
     } else {
@@ -1298,7 +1477,7 @@ function verDetalleTarea(id) {
     actionPanelHtml = `
       <div class="glass" style="padding:14px; margin-top:20px; text-align:center; opacity:0.8;">
         <h4 style="font-weight:500; font-size:0.85rem;">📌 Estado de la Tarea</h4>
-        <p style="font-size:0.8rem; color:var(--text-muted);">Lote asignado a <strong>${t.empleado?.nombre || 'operario'}</strong> (${cargoFiltroMap[t.etapa_actual] || 'N/A'}). En espera de finalización.</p>
+        <p style="font-size:0.8rem; color:var(--text-muted);">Lote asignado a <strong>${Fmt.esc(t.empleado?.nombre || 'operario')}</strong> (${cargoFiltroMap[t.etapa_actual] || 'N/A'}). En espera de finalización.</p>
       </div>
     `;
   }
@@ -1308,13 +1487,13 @@ function verDetalleTarea(id) {
     <!-- Top Details -->
     <div style="display:flex; gap:16px; align-items:center; margin-bottom:20px;">
       <div style="width:80px; height:80px; border-radius:var(--radius-md); overflow:hidden; background:#11112b; flex-shrink:0;">
-        <img src="${imgUrl}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=400&q=80'" />
+        <img src="${Fmt.esc(imgUrl)}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=400&q=80'" />
       </div>
       <div>
-        <h4 style="font-size:1.05rem; font-weight:700; margin-bottom:4px;">${prodName}</h4>
-        <p style="font-size:0.82rem; color:var(--text-secondary);">${t.descripcion}</p>
+        <h4 style="font-size:1.05rem; font-weight:700; margin-bottom:4px;">${Fmt.esc(prodName)}</h4>
+        <p style="font-size:0.82rem; color:var(--text-secondary);">${Fmt.esc(t.descripcion)}</p>
         <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">
-          Talla: <strong>${t.talla}</strong> · Color: <strong>${t.color}</strong> · Cantidad: <strong>${t.cantidad_pares} pares</strong>
+          Tallas: <strong>${Array.isArray(t.tallas_lote) && t.tallas_lote.length ? t.tallas_lote.join(', ') : (t.talla || 'N/A')}</strong> · Color: <strong>${Fmt.esc(t.color)}</strong> · Cantidad: <strong>${t.cantidad_pares} pares</strong>
         </div>
       </div>
     </div>
@@ -1331,12 +1510,12 @@ function verDetalleTarea(id) {
     <div class="glass" style="padding:16px; margin-top:16px;">
       <h4 style="font-size:0.85rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:10px;">Bitácora de Fechas y Cambios</h4>
       <div style="display:flex; flex-direction:column; gap:8px; font-size:0.8rem;">
-        <div>📅 <strong>Fecha de Creación:</strong> ${Fmt.datetime(t.fecha_creacion + 'T00:00:00.000Z')}</div>
+        <div>📅 <strong>Fecha de Creación:</strong> ${Fmt.date(t.fecha_creacion)}</div>
         ${t.historial_etapas.map(h => {
           const w = DB.Usuarios.getById(h.usuario_id);
           return `
             <div style="padding-left:12px; border-left:2px solid var(--primary);">
-              🛠️ <strong>Etapa ${cargoFiltroMap[h.etapa]}:</strong> Asignado a ${w?.nombre || 'Trabajador'} el ${Fmt.datetime(h.fecha_inicio)}.
+              🛠️ <strong>Etapa ${cargoFiltroMap[h.etapa] || h.etapa}:</strong> Asignado a ${Fmt.esc(w?.nombre || 'Trabajador')} el ${Fmt.datetime(h.fecha_inicio)}.
               ${h.fecha_fin ? `<br><span style="color:var(--success);">✓ Finalizó:</span> ${Fmt.datetime(h.fecha_fin)}` : '<br><span style="color:var(--warning);">⏳ En proceso...</span>'}
             </div>
           `;
@@ -1402,7 +1581,7 @@ function avanzarEtapaTarea(id) {
       para_usuario_id: parseInt(proximoUsuarioId),
       tipo: 'tarea_asignada',
       titulo: `✅ Nueva Etapa Asignada: ${etapaCargoMap[t.etapa_actual] || t.etapa_actual}`,
-      mensaje: `El supervisor te asignó la siguiente etapa de: "${t.descripcion}". Por favor revisa tus tareas.`,
+      mensaje: `El supervisor te asignó la siguiente etapa de: "${Fmt.esc(t.descripcion)}". Por favor revisa tus tareas.`,
       tarea_id: id,
     });
     updateNotifBadge();
@@ -1428,7 +1607,7 @@ function toggleCargoField() {
 
 function renderUsuarios() {
   if (((currentUser.rol || '').toLowerCase() !== 'administrador')) {
-    Router.navigate('dashboard');
+    Router.navigate('nominas');
     Toast.warning('Solo administradores pueden ver esta sección');
     return;
   }
@@ -1450,23 +1629,25 @@ function renderUsuarios() {
     <tr>
       <td>
         <div style="display:flex; align-items:center; gap:10px;">
-          <div class="avatar" style="background:${Fmt.avatarColor(u.id)};">${Fmt.initials(u.nombre)}</div>
+          <div class="avatar" style="background:${Fmt.avatarColor(u.id)};">${Fmt.esc(Fmt.initials(u.nombre))}</div>
           <div>
-            <div style="font-weight:600;">${u.nombre}</div>
-            <div style="font-size:0.78rem; color:var(--text-muted);">${u.email}</div>
+            <div style="font-weight:600;">${Fmt.esc(u.nombre)}</div>
+            <div style="font-size:0.78rem; color:var(--text-muted);">${Fmt.esc(u.email)}</div>
           </div>
         </div>
       </td>
       <td>
         <div>${Fmt.rolBadge(u.rol)}</div>
-        ${u.rol === 'empleado' ? `<span class="badge badge-info" style="font-size:0.68rem; margin-top:2px;">Cargo: ${u.cargo || 'General'}</span>` : ''}
+        ${u.rol === 'empleado' ? `<span class="badge badge-info" style="font-size:0.68rem; margin-top:2px;">Cargo: ${Fmt.esc(u.cargo || 'General')}</span>` : ''}
+        ${u.debe_cambiar_password ? `<div><span class="badge badge-warning" style="font-size:0.68rem; margin-top:4px;" title="Debe crear su contraseña al entrar">🔑 Clave temporal</span></div>` : ''}
       </td>
-      <td>${u.telefono || '-'}</td>
+      <td>${Fmt.esc(u.telefono || '-')}</td>
       <td>${Fmt.date(u.creado_en)}</td>
       <td>
         <div style="display:flex; gap:6px;">
-          <button class="btn btn-sm btn-outline" onclick="editUsuario(${u.id})">✏️</button>
-          ${u.id !== currentUser.id ? `<button class="btn btn-sm btn-danger" onclick="deleteUsuario(${u.id})">🗑️</button>` : ''}
+          <button class="btn btn-sm btn-outline" onclick="editUsuario(${u.id})" title="Editar">✏️</button>
+          ${u.id !== currentUser.id ? `<button class="btn btn-sm btn-outline" onclick="restablecerPassword(${u.id})" title="Restablecer contraseña">🔑</button>` : ''}
+          ${u.id !== currentUser.id ? `<button class="btn btn-sm btn-danger" onclick="deleteUsuario(${u.id})" title="Eliminar">🗑️</button>` : ''}
         </div>
       </td>
     </tr>
@@ -1474,7 +1655,6 @@ function renderUsuarios() {
 
   document.getElementById('stat-total-usuarios').textContent = usuarios.length;
   document.getElementById('stat-admins').textContent = usuarios.filter(u => u.rol === 'administrador').length;
-  document.getElementById('stat-jefes').textContent = usuarios.filter(u => u.rol === 'jefe').length;
   document.getElementById('stat-empleados-u').textContent = usuarios.filter(u => u.rol === 'empleado').length;
 }
 
@@ -1483,6 +1663,8 @@ function openAddUsuario() {
   document.getElementById('usuario-id-edit').value = '';
   document.getElementById('usuario-modal-title').textContent = 'Nuevo Usuario';
   document.getElementById('usuario-password-group').style.display = '';
+  document.getElementById('usuario-password-label').textContent = 'Contraseña *';
+  document.getElementById('usuario-password').placeholder = 'Mínimo 6 caracteres';
   document.getElementById('usuario-rol').value = 'empleado';
   toggleCargoField();
   Modal.open('usuario-modal');
@@ -1499,15 +1681,19 @@ function editUsuario(id) {
   document.getElementById('usuario-cargo').value = u.cargo || 'Cortador';
   document.getElementById('usuario-telefono').value = u.telefono || '';
   document.getElementById('usuario-direccion').value = u.direccion || '';
-  document.getElementById('usuario-password-group').style.display = 'none';
+  // El admin puede restablecer la contraseña; si lo deja vacío no se cambia
+  document.getElementById('usuario-password-group').style.display = '';
+  document.getElementById('usuario-password-label').textContent = 'Nueva contraseña (opcional)';
+  document.getElementById('usuario-password').value = '';
+  document.getElementById('usuario-password').placeholder = 'Dejar vacío para no cambiarla';
   toggleCargoField();
   Modal.open('usuario-modal');
 }
 
-function saveUsuario() {
+async function saveUsuario() {
   const id = document.getElementById('usuario-id-edit').value;
   const rolVal = document.getElementById('usuario-rol').value;
-  const cargoVal = rolVal === 'empleado' ? document.getElementById('usuario-cargo').value : (rolVal === 'jefe' ? 'Dirección' : 'Administración');
+  const cargoVal = rolVal === 'empleado' ? document.getElementById('usuario-cargo').value : 'Administración';
   
   const data = {
     nombre: document.getElementById('usuario-nombre').value,
@@ -1517,9 +1703,10 @@ function saveUsuario() {
     telefono: document.getElementById('usuario-telefono').value,
     direccion: document.getElementById('usuario-direccion').value,
   };
-  if (!id) data.password = document.getElementById('usuario-password').value;
+  const pwd = document.getElementById('usuario-password').value;
+  if (!id) data.password = pwd;
 
-  if (!data.nombre || !data.email) {
+  if (!data.nombre.trim() || !data.email.trim()) {
     Toast.error('Nombre y correo son requeridos');
     return;
   }
@@ -1531,10 +1718,32 @@ function saveUsuario() {
     Toast.error('La contraseña debe tener al menos 6 caracteres');
     return;
   }
+  if (id && pwd) {
+    if (pwd.length < 6) { Toast.error('La nueva contraseña debe tener al menos 6 caracteres'); return; }
+    if (parseInt(id) === currentUser.id) {
+      Toast.warning('Para cambiar tu propia contraseña usa "Mi Perfil" (te pedirá la actual)');
+      return;
+    }
+  }
 
   const result = id ? DB.Usuarios.update(parseInt(id), data) : DB.Usuarios.create(data);
   if (result.error) { Toast.error(result.error); return; }
-  Toast.success(id ? 'Usuario actualizado' : 'Usuario creado correctamente');
+  // Restablecer contraseña de otro usuario (lo hace el servidor, guardándola con hash)
+  if (id && pwd) {
+    const r = await DB.Usuarios.changePassword(parseInt(id), pwd);
+    if (r.error) { Toast.error(r.error); return; }
+  }
+  // Si el admin se editó a sí mismo, refrescar la sesión
+  if (id && parseInt(id) === currentUser.id) {
+    const { password: _, ...safeUser } = result.user;
+    currentUser = safeUser;
+    DB.Session.set(currentUser);
+    setupHeader();
+    setupSidebar();
+  }
+  if (!id) Toast.success('Usuario creado. Deberá cambiar su contraseña la primera vez que entre.');
+  else if (pwd) Toast.success('Usuario actualizado. Deberá cambiar la nueva contraseña al entrar.');
+  else Toast.success('Usuario actualizado');
   Modal.close('usuario-modal');
   renderUsuarios();
 }
@@ -1567,7 +1776,7 @@ function renderReportes() {
     <tr>
       <td><strong>#${r.id}</strong></td>
       <td>${tipoLabels[r.tipo] || r.tipo}</td>
-      <td>${r.generador?.nombre || 'Sistema'}</td>
+      <td>${Fmt.esc(r.generador?.nombre || 'Sistema')}</td>
       <td>${Fmt.datetime(r.fecha_generacion)}</td>
       <td>
         <div style="display:flex; gap:6px;">
@@ -1598,8 +1807,8 @@ function actualizarCamposGenerarReporte() {
   const container = document.getElementById('gr-valor-container');
   if (!container) return;
 
-  const todayStr = new Date().toISOString().split('T')[0];
-  const thisYear = new Date().getFullYear();
+  const todayStr = TimeHelper.getBogotaToday();
+  const thisYear = TimeHelper.getBogotaYear();
 
   if (tipo === 'todo') {
     container.innerHTML = '';
@@ -1609,7 +1818,7 @@ function actualizarCamposGenerarReporte() {
       <input type="date" class="form-control" id="gr-valor-dia" value="${todayStr}" required />
     `;
   } else if (tipo === 'semana') {
-    const weekVal = `${thisYear}-W23`; // default week
+    const weekVal = TimeHelper.getIsoWeekValue();
     container.innerHTML = `
       <label class="form-label">Selecciona la Semana *</label>
       <input type="week" class="form-control" id="gr-valor-semana" value="${weekVal}" required />
@@ -1631,7 +1840,7 @@ function actualizarCamposGenerarReporte() {
 function procesarGeneracionReporte() {
   const tipo = document.getElementById('gr-tipo').value;
   const periodo = document.getElementById('gr-periodo-tipo').value;
-  const todayVal = new Date().toISOString().split('T')[0];
+  const todayVal = TimeHelper.getBogotaToday();
 
   let contenido = {};
   let labelPeriodo = 'Historial Completo';
@@ -1781,16 +1990,16 @@ function verReporte(id) {
         <div class="glass" style="padding:16px; text-align:center;"><div style="font-size:0.75rem; color:var(--text-muted);">PAGO TOTAL</div><div style="font-size:1.1rem; font-weight:800; color:var(--success);">${Fmt.currency(res.total_pago)}</div></div>
       </div>
       <table class="data-table"><thead><tr><th>Empleado</th><th>Salario</th><th>Deducciones</th><th>Bonos</th><th>Neto</th><th>Estado</th></tr></thead>
-      <tbody>${(r.contenido.detalle || []).map(d => `<tr><td>${d.empleado || 'N/A'}</td><td>${Fmt.currency(d.salario)}</td><td>${Fmt.currency(d.deducciones)}</td><td>${Fmt.currency(d.bonificaciones)}</td><td><strong>${Fmt.currency(d.neto)}</strong></td><td>${Fmt.estadoNomina(d.estado)}</td></tr>`).join('')}</tbody></table>`;
+      <tbody>${(r.contenido.detalle || []).map(d => `<tr><td>${Fmt.esc(d.empleado || 'N/A')}</td><td>${Fmt.currency(d.salario)}</td><td>${Fmt.currency(d.deducciones)}</td><td>${Fmt.currency(d.bonificaciones)}</td><td><strong>${Fmt.currency(d.neto)}</strong></td><td>${Fmt.estadoNomina(d.estado)}</td></tr>`).join('')}</tbody></table>`;
   } else if (r.tipo === 'inventario') {
     contenidoHtml = `
       <div class="grid-2" style="margin-bottom:20px;">
         <div class="glass" style="padding:16px; text-align:center;"><div style="font-size:0.75rem; color:var(--text-muted);">PRODUCTOS</div><div style="font-size:1.4rem; font-weight:800;">${r.contenido.resumen.totalProductos}</div></div>
         <div class="glass" style="padding:16px; text-align:center;"><div style="font-size:0.75rem; color:var(--text-muted);">VALOR TOTAL</div><div style="font-size:1.1rem; font-weight:800; color:var(--success);">${Fmt.currency(r.contenido.resumen.valorTotal)}</div></div>
       </div>
-      ${r.contenido.stock_bajo.length > 0 ? `<div style="background:rgba(239,35,60,0.1); border:1px solid rgba(239,35,60,0.3); border-radius:8px; padding:12px; margin-bottom:16px;"><strong>⚠️ Stock Bajo:</strong> ${r.contenido.stock_bajo.map(p => p.nombre).join(', ')}</div>` : ''}
+      ${r.contenido.stock_bajo.length > 0 ? `<div style="background:rgba(239,35,60,0.1); border:1px solid rgba(239,35,60,0.3); border-radius:8px; padding:12px; margin-bottom:16px;"><strong>⚠️ Stock Bajo:</strong> ${r.contenido.stock_bajo.map(p => Fmt.esc(p.nombre)).join(', ')}</div>` : ''}
       <table class="data-table"><thead><tr><th>Producto</th><th>Categoría</th><th>Cantidad</th><th>Precio</th></tr></thead>
-      <tbody>${(r.contenido.detalle || []).map(d => `<tr><td>${d.nombre}</td><td>${d.categoria}</td><td>${d.cantidad} ${d.unidad}</td><td>${Fmt.currency(d.precio_unitario)}</td></tr>`).join('')}</tbody></table>`;
+      <tbody>${(r.contenido.detalle || []).map(d => `<tr><td>${Fmt.esc(d.nombre)}</td><td>${Fmt.esc(d.categoria)}</td><td>${d.cantidad} ${Fmt.esc(d.unidad)}</td><td>${Fmt.currency(d.precio_unitario)}</td></tr>`).join('')}</tbody></table>`;
   } else if (r.tipo === 'tareas') {
     const res = r.contenido.resumen;
     contenidoHtml = `
@@ -1801,7 +2010,7 @@ function verReporte(id) {
         <div class="glass" style="padding:12px; text-align:center;"><div style="font-size:0.72rem; color:var(--danger);">VENCIDAS</div><div style="font-size:1.3rem; font-weight:800; color:var(--danger);">${res.vencidas}</div></div>
       </div>
       <table class="data-table"><thead><tr><th>Tarea</th><th>Asignado</th><th>Prioridad</th><th>Estado</th></tr></thead>
-      <tbody>${(r.contenido.detalle || []).map(d => `<tr><td>${d.descripcion}</td><td>${d.empleado || 'N/A'}</td><td>${Fmt.prioridadBadge(d.prioridad)}</td><td>${Fmt.estadoTarea(d.estado)}</td></tr>`).join('')}</tbody></table>`;
+      <tbody>${(r.contenido.detalle || []).map(d => `<tr><td>${Fmt.esc(d.descripcion)}</td><td>${Fmt.esc(d.empleado || 'N/A')}</td><td>${Fmt.prioridadBadge(d.prioridad)}</td><td>${Fmt.estadoTarea(d.estado)}</td></tr>`).join('')}</tbody></table>`;
   }
 
   const periodLabel = r.contenido.periodo ? ` (${r.contenido.periodo})` : '';
@@ -1826,19 +2035,19 @@ function exportarPDF(id) {
   if (r.tipo === 'nominas') {
     csvLines.push('Empleado,Salario,Deducciones,Bonificaciones,Neto,Estado,Fecha');
     (r.contenido.detalle || []).forEach(d => {
-      csvLines.push(`"${d.empleado || 'N/A'}",${d.salario},${d.deducciones},${d.bonificaciones},${d.neto},${d.estado},${d.fecha}`);
+      csvLines.push(`${Fmt.csv(d.empleado || 'N/A')},${d.salario},${d.deducciones},${d.bonificaciones},${d.neto},${d.estado},${d.fecha}`);
     });
     csvLines.push(``);
     csvLines.push(`Total Pago Neto,${r.contenido.resumen?.total_pago || 0}`);
   } else if (r.tipo === 'inventario') {
     csvLines.push('Producto,Categoria,Cantidad,Unidad,Precio Unitario');
     (r.contenido.detalle || []).forEach(d => {
-      csvLines.push(`"${d.nombre}","${d.categoria}",${d.cantidad},"${d.unidad}",${d.precio_unitario}`);
+      csvLines.push(`${Fmt.csv(d.nombre)},${Fmt.csv(d.categoria)},${d.cantidad},${Fmt.csv(d.unidad)},${d.precio_unitario}`);
     });
   } else if (r.tipo === 'tareas') {
     csvLines.push('Tarea,Empleado,Prioridad,Estado,Vencimiento');
     (r.contenido.detalle || []).forEach(d => {
-      csvLines.push(`"${d.descripcion}","${d.empleado || 'N/A'}",${d.prioridad},${d.estado},${d.vencimiento}`);
+      csvLines.push(`${Fmt.csv(d.descripcion)},${Fmt.csv(d.empleado || 'N/A')},${d.prioridad},${d.estado},${d.vencimiento}`);
     });
     csvLines.push(``);
     csvLines.push(`Total,${r.contenido.resumen?.total || 0}`);
@@ -1850,7 +2059,7 @@ function exportarPDF(id) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `reporte_${r.tipo}_${new Date().toISOString().split('T')[0]}.csv`;
+  a.download = `reporte_${r.tipo}_${TimeHelper.getBogotaToday()}.csv`;
   a.click();
   URL.revokeObjectURL(url);
   Toast.success('📄 Reporte descargado como CSV');
@@ -1877,8 +2086,8 @@ function actualizarCamposDescargaNomina() {
   const container = document.getElementById('dn-valor-container');
   if (!container) return;
 
-  const todayStr = new Date().toISOString().split('T')[0];
-  const thisYear = new Date().getFullYear();
+  const todayStr = TimeHelper.getBogotaToday();
+  const thisYear = TimeHelper.getBogotaYear();
 
   if (tipo === 'todo') {
     container.innerHTML = '';
@@ -1889,7 +2098,7 @@ function actualizarCamposDescargaNomina() {
     `;
   } else if (tipo === 'semana') {
     // Current week format YYYY-Www
-    const weekVal = `${thisYear}-W23`; // Fallback/default week
+    const weekVal = TimeHelper.getIsoWeekValue();
     container.innerHTML = `
       <label class="form-label">Selecciona la Semana *</label>
       <input type="week" class="form-control" id="dn-valor-semana" value="${weekVal}" required />
@@ -1971,7 +2180,7 @@ function procesarDescargaNominaEmpleado() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `nominas_${nombreEmpleado.replace(/\s+/g, '_')}_${labelFiltro}_${new Date().toISOString().split('T')[0]}.csv`;
+  a.download = `nominas_${nombreEmpleado.replace(/\s+/g, '_')}_${labelFiltro}_${TimeHelper.getBogotaToday()}.csv`;
   a.click();
   URL.revokeObjectURL(url);
   Modal.close('descargar-nominas-modal');
@@ -2005,7 +2214,7 @@ function renderPerfil() {
   if (perfilNombre) perfilNombre.textContent = user.nombre;
   if (perfilRol) {
     const cargoStr = user.cargo ? ` · Cargo: ${user.cargo}` : '';
-    perfilRol.innerHTML = Fmt.rolBadge(user.rol) + `<span style="margin-left:8px; font-size:0.85rem; color:var(--text-muted);">${cargoStr}</span>`;
+    perfilRol.innerHTML = Fmt.rolBadge(user.rol) + `<span style="margin-left:8px; font-size:0.85rem; color:var(--text-muted);">${Fmt.esc(cargoStr)}</span>`;
   }
 
   document.getElementById('perfil-nombre').value = user.nombre;
@@ -2042,18 +2251,19 @@ function savePerfil() {
   Toast.success('Perfil actualizado correctamente');
 }
 
-function cambiarPassword() {
+async function cambiarPassword() {
   const actual = document.getElementById('pwd-actual').value;
   const nueva = document.getElementById('pwd-nueva').value;
   const confirmar = document.getElementById('pwd-confirmar').value;
 
   if (!actual || !nueva || !confirmar) { Toast.error('Completa todos los campos'); return; }
-  const user = DB.Usuarios.getById(currentUser.id);
-  if (user.password !== btoa(actual)) { Toast.error('Contraseña actual incorrecta'); return; }
   if (nueva.length < 6) { Toast.error('La nueva contraseña debe tener al menos 6 caracteres'); return; }
   if (nueva !== confirmar) { Toast.error('Las contraseñas no coinciden'); return; }
+  if (nueva === actual) { Toast.error('La nueva contraseña debe ser diferente a la actual'); return; }
 
-  DB.Usuarios.update(currentUser.id, { password: btoa(nueva) });
+  // La contraseña actual la verifica el servidor (allí está guardada con hash)
+  const result = await DB.Usuarios.changePassword(currentUser.id, nueva, actual);
+  if (result.error) { Toast.error(result.error); return; }
   document.getElementById('perfil-pwd-form').reset();
   Toast.success('Contraseña cambiada correctamente');
 }
@@ -2091,11 +2301,11 @@ function renderPerfilHistorialTareas(tareas) {
     return `
       <div class="glass" style="padding:14px; margin-bottom:10px;">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
-          <div style="font-weight:600; font-size:0.9rem;">${t.descripcion}</div>
+          <div style="font-weight:600; font-size:0.9rem;">${Fmt.esc(t.descripcion)}</div>
           ${Fmt.estadoTarea(t.estado)}
         </div>
         <div style="font-size:0.78rem; color:var(--text-muted); display:flex; flex-direction:column; gap:3px;">
-          <div>💟 Producto: <strong>${prod?.nombre || 'N/A'}</strong> — Tallas: ${tallasStr} — Color: ${t.color} — ${t.cantidad_pares} pares</div>
+          <div>💟 Producto: <strong>${Fmt.esc(prod?.nombre || 'N/A')}</strong> — Tallas: ${Fmt.esc(tallasStr)} — Color: ${Fmt.esc(t.color)} — ${t.cantidad_pares} pares</div>
           <div>🛠️ Mi Etapa: <strong>${etapaCargoMap[miEtapa?.etapa] || miEtapa?.etapa || '?'}</strong></div>
           <div>📅 Inicio: ${Fmt.date(miEtapa?.fecha_inicio?.split('T')[0])} ${miEtapa?.fecha_fin ? `— Fin: ${Fmt.date(miEtapa.fecha_fin.split('T')[0])}` : '<span style="color:var(--warning);">(⏳ En proceso)</span>'}</div>
         </div>
@@ -2129,6 +2339,50 @@ function toggleNotifPanel() {
   if (notifPanelOpen) renderNotifList();
 }
 
+function renderNotifList() {
+  const list = document.getElementById('notif-list');
+  if (!list || !currentUser) return;
+  const notifs = DB.Notificaciones.getByUsuario(currentUser.id);
+
+  if (notifs.length === 0) {
+    list.innerHTML = '<div style="padding: 24px; text-align:center; color:var(--text-muted); font-size:0.85rem;">Sin notificaciones</div>';
+    return;
+  }
+
+  const iconos = { tarea_asignada: '📋', tarea_completada: '✅', info: 'ℹ️' };
+  list.innerHTML = notifs.map(n => `
+    <div class="notif-item ${n.leida ? '' : 'unread'}" style="cursor:pointer;" onclick="abrirNotificacion(${n.id})">
+      <div class="notif-icon">${iconos[n.tipo] || '🔔'}</div>
+      <div class="notif-body">
+        <div class="notif-title">${Fmt.esc(n.titulo)}</div>
+        <div class="notif-msg">${Fmt.esc(n.mensaje)}</div>
+        <div class="notif-time">${Fmt.datetime(n.fecha)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function abrirNotificacion(id) {
+  const notif = DB.Notificaciones.getAll().find(n => n.id === id);
+  if (!notif) return;
+  DB.Notificaciones.markRead(id);
+  updateNotifBadge();
+  renderNotifList();
+  if (notif.tarea_id && DB.Tareas.getAll().some(t => t.id === notif.tarea_id)) {
+    document.getElementById('notif-dropdown').style.display = 'none';
+    notifPanelOpen = false;
+    verDetalleTarea(notif.tarea_id);
+  }
+}
+
+function marcarTodasLeidas() {
+  if (!currentUser) return;
+  DB.Notificaciones.markAllRead(currentUser.id);
+  updateNotifBadge();
+  renderNotifList();
+  Toast.info('Notificaciones marcadas como leídas');
+}
+
 function exportarExcel(id) {
   const reportes = DB.Reportes.getAll();
   const r = reportes.find(x => x.id === id);
@@ -2148,13 +2402,13 @@ function exportarExcel(id) {
     .muted{color:#666;font-size:12px}
   </style></head><body>`;
 
-  html += `<div class="header"><img class="logo" src="assets/img/logo-light.png"/><div><h2>${title}</h2><div class="muted">Generado: ${generated}</div><div class="muted">${r.contenido.periodo || ''}</div></div></div>`;
+  html += `<div class="header"><img class="logo" src="assets/img/logo-light.png"/><div><h2>${title}</h2><div class="muted">Generado: ${generated}</div><div class="muted">${Fmt.esc(r.contenido.periodo || '')}</div></div></div>`;
 
   if (r.tipo === 'nominas') {
     html += `<h3>Resumen Nóminas</h3>`;
     html += `<table><thead><tr><th>Empleado</th><th>Salario</th><th>Deducciones</th><th>Bonos</th><th>Neto</th><th>Estado</th><th>Fecha</th></tr></thead><tbody>`;
     (r.contenido.detalle || []).forEach(d => {
-      html += `<tr><td>${d.empleado || ''}</td><td>${d.salario}</td><td>${d.deducciones}</td><td>${d.bonificaciones}</td><td>${d.neto}</td><td>${d.estado}</td><td>${d.fecha}</td></tr>`;
+      html += `<tr><td>${Fmt.esc(d.empleado || '')}</td><td>${d.salario}</td><td>${d.deducciones}</td><td>${d.bonificaciones}</td><td>${d.neto}</td><td>${d.estado}</td><td>${d.fecha}</td></tr>`;
     });
     html += `</tbody></table>`;
     html += `<p class="muted">Total Pago Neto: ${r.contenido.resumen?.total_pago || 0}</p>`;
@@ -2162,14 +2416,14 @@ function exportarExcel(id) {
     html += `<h3>Inventario</h3>`;
     html += `<table><thead><tr><th>Producto</th><th>Categoría</th><th>Cantidad</th><th>Unidad</th><th>Precio Unitario</th></tr></thead><tbody>`;
     (r.contenido.detalle || []).forEach(d => {
-      html += `<tr><td>${d.nombre}</td><td>${d.categoria}</td><td>${d.cantidad}</td><td>${d.unidad}</td><td>${d.precio_unitario}</td></tr>`;
+      html += `<tr><td>${Fmt.esc(d.nombre)}</td><td>${Fmt.esc(d.categoria)}</td><td>${d.cantidad}</td><td>${Fmt.esc(d.unidad)}</td><td>${d.precio_unitario}</td></tr>`;
     });
     html += `</tbody></table>`;
   } else if (r.tipo === 'tareas') {
     html += `<h3>Tareas</h3>`;
     html += `<table><thead><tr><th>Tarea</th><th>Empleado</th><th>Prioridad</th><th>Estado</th><th>Vencimiento</th></tr></thead><tbody>`;
     (r.contenido.detalle || []).forEach(d => {
-      html += `<tr><td>${d.descripcion}</td><td>${d.empleado || ''}</td><td>${d.prioridad}</td><td>${d.estado}</td><td>${d.vencimiento}</td></tr>`;
+      html += `<tr><td>${Fmt.esc(d.descripcion)}</td><td>${Fmt.esc(d.empleado || '')}</td><td>${d.prioridad}</td><td>${d.estado}</td><td>${d.vencimiento}</td></tr>`;
     });
     html += `</tbody></table>`;
   }
@@ -2180,12 +2434,15 @@ function exportarExcel(id) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `reporte_${r.tipo}_${new Date().toISOString().split('T')[0]}.xls`;
+  a.download = `reporte_${r.tipo}_${TimeHelper.getBogotaToday()}.xls`;
   a.click();
 }
 
-function borrarTodasNotif() {
+async function borrarTodasNotif() {
   if (!currentUser) return;
+  if (DB.Notificaciones.getByUsuario(currentUser.id).length === 0) return;
+  const ok = await Modal.confirm('¿Borrar todas tus notificaciones?', 'Borrar Notificaciones');
+  if (!ok) return;
   DB.Notificaciones.deleteAll(currentUser.id);
   updateNotifBadge();
   renderNotifList();
@@ -2205,59 +2462,39 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Check auth
   checkAuth();
 
-  // Login form
-  document.getElementById('login-form')?.addEventListener('submit', (e) => {
+  // Login form (el registro público se eliminó: solo el administrador crea cuentas)
+  document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
-    const result = DB.Usuarios.login(email, password);
+    if (!email.trim() || !password) { Toast.error('Ingresa tu correo y contraseña'); return; }
+
+    if (btn) { btn.disabled = true; btn.dataset.text = btn.innerHTML; btn.innerHTML = '⏳ Ingresando...'; }
+    const result = await DB.Usuarios.login(email, password);
+    if (btn) { btn.disabled = false; btn.innerHTML = btn.dataset.text; }
+
     if (result.error) { Toast.error(result.error); return; }
-    currentUser = result.user;
+    currentUser = { ...result.user, rol: (result.user.rol || '').toLowerCase() };
     DB.Session.set(currentUser);
-    Toast.success(`¡Bienvenido, ${currentUser.nombre.split(' ')[0]}! 👋`);
+    document.getElementById('login-password').value = '';
+    if (currentUser.debe_cambiar_password) {
+      passwordLoginTemporal = password; // para no pedirla otra vez en el cambio obligatorio
+    } else {
+      Toast.success(`¡Bienvenido, ${currentUser.nombre.split(' ')[0]}! 👋`);
+    }
     showApp();
   });
 
-  // Register form
-  document.getElementById('register-form')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const data = {
-      nombre: document.getElementById('reg-nombre').value,
-      email: document.getElementById('reg-email').value,
-      password: document.getElementById('reg-password').value,
-      rol: document.querySelector('.role-option.selected')?.dataset.rol || 'empleado',
-      cargo: document.querySelector('.role-option.selected')?.dataset.rol === 'empleado' ? 'Cortador' : 'Dirección',
-    };
-    if (!Validate.email(data.email)) { Toast.error('Correo inválido'); return; }
-    if (data.password.length < 6) { Toast.error('La contraseña debe tener mínimo 6 caracteres'); return; }
-    const result = DB.Usuarios.create(data);
-    if (result.error) { Toast.error(result.error); return; }
-    Toast.success('¡Cuenta creada! Inicia sesión ahora.');
-    switchAuthTab('login');
-    document.getElementById('login-email').value = data.email;
+  // El servidor rechazó la sesión (expiró, o el usuario fue eliminado)
+  window.addEventListener('rosalopz:sesion-expirada', () => {
+    if (!currentUser) return;
+    cerrarSesion();
+    Toast.warning('Tu sesión expiró. Vuelve a iniciar sesión.');
   });
-
-  // Role selector
-  document.querySelectorAll('.role-option').forEach(opt => {
-    opt.addEventListener('click', () => {
-      document.querySelectorAll('.role-option').forEach(o => o.classList.remove('selected'));
-      opt.classList.add('selected');
-    });
-  });
-
-  // Password strength
-  document.getElementById('reg-password')?.addEventListener('input', (e) => {
-    const score = Validate.password(e.target.value);
-    const segs = document.querySelectorAll('.strength-seg');
-    const label = document.getElementById('strength-label');
-    segs.forEach((s, i) => {
-      s.className = 'strength-seg';
-      if (i < score) {
-        s.classList.add(score <= 1 ? 'weak' : score <= 2 ? 'medium' : 'strong');
-      }
-    });
-    const labels = ['', 'Débil', 'Regular', 'Buena', 'Excelente'];
-    if (label) label.textContent = labels[score] || '';
+  // El servidor no aceptó un cambio (permisos, correo repetido, servidor apagado...)
+  window.addEventListener('rosalopz:error-sync', (e) => {
+    Toast.error(`No se guardó en el servidor: ${e.detail}`);
   });
 
   // Toggle passwords
@@ -2281,9 +2518,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Logout
   document.getElementById('btn-logout')?.addEventListener('click', () => {
-    DB.Session.clear();
-    currentUser = null;
-    showAuth('login');
+    cerrarSesion();
     Toast.info('Sesión cerrada');
   });
 
@@ -2407,7 +2642,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.addEventListener('click', (e) => {
     const panel = document.getElementById('notif-dropdown');
     const btn = document.getElementById('btn-notif');
-    if (panel && notifPanelOpen && !panel.contains(e.target) && !btn.contains(e.target)) {
+    // e.target.isConnected: si la lista se re-dibujó al hacer clic, el elemento ya no está en el DOM
+    if (panel && notifPanelOpen && e.target.isConnected && !panel.contains(e.target) && !btn.contains(e.target)) {
       panel.style.display = 'none';
       notifPanelOpen = false;
     }

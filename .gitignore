@@ -8,3 +8,8 @@ server/.env
 
 # Editor directories
 .vscode/
+# Respaldos de la base de datos (seed.js)
+backups/
+
+# Resultados y capturas de las pruebas automatizadas
+pruebas/resultados/
