@@ -10,7 +10,10 @@
     "dev": "node --watch server.js",
     "seed": "node seed.js",
     "test:e2e": "node pruebas/e2e.js",
-    "test:estres": "node pruebas/estres.js"
+    "test:estres": "node pruebas/estres.js",
+    "demo": "node pruebas/e2e.js --demo",
+    "reiniciar-datos": "node seed.js --force",
+    "demo:lento": "node pruebas/e2e.js --demo --velocidad=2000"
   },
   "keywords": [],
   "author": "",

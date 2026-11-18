@@ -12,7 +12,12 @@ const { chromium } = require('playwright-core');
 
 const PROYECTO = path.resolve(__dirname, '..');
 const OUT = path.join(__dirname, 'resultados');
-const SOLO = process.argv.slice(2);
+// Argumentos: casos (CP01 CP04 …) y opciones: --demo (navegador visible y lento), --velocidad=1500 (ms)
+const ARGS = process.argv.slice(2);
+const DEMO = ARGS.includes('--demo');
+const ARG_VEL = ARGS.find(a => a.startsWith('--velocidad='));
+let SOLO = ARGS.filter(a => !a.startsWith('--')).map(a => a.toUpperCase());
+if (DEMO && !SOLO.length) SOLO = ['CP01', 'CP04', 'CP10', 'CP13']; // casos de la demostración
 const BASE = 'http://localhost:3999';
 // Navegador: Microsoft Edge (o el indicado en la variable NAVEGADOR, p. ej. la ruta de Chrome)
 const EDGE = process.env.NAVEGADOR || 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
@@ -27,11 +32,79 @@ const resultados = [];
 const capturasSistema = [];
 let browser;
 
+/* ---------- modo demostración (VER=1) ---------- */
+// VER=1 muestra el navegador; VELOCIDAD = milisegundos de pausa entre acciones (por defecto 800)
+const VER = DEMO || !!process.env.VER;
+const PAUSA = parseInt(ARG_VEL ? ARG_VEL.split('=')[1] : process.env.VELOCIDAD, 10) || 1200;
+const NOMBRES = {
+  CP01: ['Inicio de sesión exitoso del administrador', 'Que el administrador entre al sistema con sus credenciales'],
+  CP02: ['Inicio de sesión con contraseña incorrecta', 'Que se niegue el acceso con una clave errada'],
+  CP03: ['Inicio de sesión con campos vacíos', 'Que no se envíe el formulario vacío'],
+  CP04: ['Registro exitoso de un usuario', 'Que se registre a Laura Gómez y aparezca en la lista'],
+  CP05: ['Registro con correo ya existente', 'Que no se permitan correos duplicados'],
+  CP06: ['Registro con correo inválido', 'Que se rechace un correo sin dominio'],
+  CP07: ['Contraseña menor a 6 caracteres', 'Que se exija una contraseña de al menos 6 caracteres'],
+  CP08: ['Consulta de un usuario', 'Que el buscador encuentre a Yolanda Castañeda'],
+  CP09: ['Actualización y persistencia', 'Que el nuevo teléfono quede guardado en PostgreSQL'],
+  CP10: ['Restablecimiento de contraseña', 'Clave temporal y cambio obligatorio al ingresar'],
+  CP11: ['Restricción para empleados', 'Que una empleada no acceda a funciones de administrador'],
+  CP12: ['Salida de inventario', 'Que la existencia baje de 34 a 29 metros'],
+  CP13: ['Salida mayor al stock', 'Que se rechace sacar 100 conos cuando solo hay 7'],
+  CP14: ['Creación de una orden de producción', 'Que la orden quede en Corte con sus 3 tallas'],
+  CP15: ['Asignación de la siguiente etapa', 'Que el supervisor envíe la orden a Guarnecido'],
+  CP16: ['El operario completa su etapa', 'Que se avise a los administradores'],
+  CP17: ['Registro de nómina', 'Que el neto sea $ 1.829.600'],
+  CP18: ['Reporte de inventario', 'Que el reporte muestre los 22 materiales'],
+  CP19: ['Contraseñas cifradas', 'Que ninguna contraseña esté en texto plano'],
+  CP20: ['Vista en teléfono', 'Que ningún módulo se salga de la pantalla'],
+};
+const paginas = new Set();
+let panel = null; // lo que muestra el recuadro de la demostración
+
+async function pintarPanel(page) {
+  if (!VER || !panel || page.isClosed()) return;
+  await page.evaluate((e) => {
+    let el = document.getElementById('__qa-panel');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = '__qa-panel';
+      document.documentElement.appendChild(el);
+    }
+    el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483647;'
+      + 'width:min(640px,92vw);padding:16px 22px;border-radius:14px;pointer-events:none;'
+      + 'font:16px/1.45 Segoe UI,Arial,sans-serif;color:#fff;box-shadow:0 10px 40px rgba(0,0,0,.55);'
+      + 'background:' + e.fondo + ';border:3px solid ' + e.borde;
+    el.textContent = '';
+    const t = document.createElement('div');
+    t.style.cssText = 'font-weight:800;font-size:20px;margin-bottom:6px';
+    t.textContent = e.titulo;
+    const d = document.createElement('div');
+    d.style.cssText = 'opacity:.95';
+    d.textContent = e.detalle;
+    el.append(t, d);
+  }, panel).catch(() => {});
+}
+const pintarTodas = () => Promise.all([...paginas].map(pintarPanel));
+
 /* ---------- utilidades ---------- */
-const nuevaPagina = async (viewport = { width: 1440, height: 900 }) => {
-  const ctx = await browser.newContext({ viewport, locale: 'es-CO', timezoneId: 'America/Bogota', deviceScaleFactor: 1 });
+const nuevaPagina = async (viewport) => {
+  const opciones = { locale: 'es-CO', timezoneId: 'America/Bogota' };
+  if (viewport) {
+    // Tamaño pedido por el caso (p. ej. teléfono de 390 px en CP20)
+    Object.assign(opciones, { viewport, deviceScaleFactor: 1 });
+  } else if (VER) {
+    // Demostración: la página usa el tamaño real de la ventana, como un navegador normal
+    opciones.viewport = null;
+  } else {
+    // Ejecución normal: tamaño fijo para que las capturas de evidencia sean comparables
+    Object.assign(opciones, { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+  }
+  const ctx = await browser.newContext(opciones);
   const page = await ctx.newPage();
   page.on('dialog', d => d.dismiss());
+  paginas.add(page);
+  page.on('close', () => paginas.delete(page));
+  page.on('load', () => pintarPanel(page)); // volver a mostrar el panel tras navegar o recargar
   return page;
 };
 const limpiarToasts = (page) => page.evaluate(() => document.querySelectorAll('.toast').forEach(t => t.remove()));
@@ -61,7 +134,16 @@ const entrar = async (page, email, clave) => {
   await limpiarToasts(page);
 };
 const ir = async (page, modulo) => {
-  await page.click(`.nav-item[data-page="${modulo}"]`);
+  const item = page.locator(`.nav-item[data-page="${modulo}"]`);
+  // En pantallas angostas el menú lateral está escondido detrás del botón ☰
+  // (el menú escondido queda desplazado fuera de la pantalla: se revisa su posición real)
+  const caja = await item.boundingBox();
+  if ((!caja || caja.x + caja.width <= 1) && (await page.locator('#header-hamburger').isVisible())) {
+    await page.click('#header-hamburger');
+    await page.locator('#sidebar.mobile-open').waitFor();
+    await page.waitForTimeout(400); // animación de apertura
+  }
+  await item.click();
   await page.locator(`#page-${modulo}.active`).waitFor();
   await page.waitForTimeout(300);
 };
@@ -74,6 +156,10 @@ const caso = (id, fn) => casos.push({ id, fn });
 async function ejecutar({ id, fn }) {
   if (SOLO.length && !SOLO.includes(id)) return;
   const r = { id, obtenido: '', estado: '', evidencias: [], detalle: [] };
+  const [nombreCaso, queVerifica] = NOMBRES[id] || [id, ''];
+  panel = { titulo: `🧪 Probando ${id} · ${nombreCaso}`, detalle: `Se verifica: ${queVerifica}`, fondo: '#14213D', borde: '#E09F3E' };
+  await pintarTodas();
+  if (VER) console.log(`\n🧪 Probando ${id} · ${nombreCaso}...`);
   const t0 = Date.now();
   try {
     const out = await fn(r);
@@ -87,6 +173,15 @@ async function ejecutar({ id, fn }) {
   r.fecha = new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' });
   resultados.push(r);
   console.log(`${r.estado === 'Aprobado' ? '✅' : '❌'} ${id} (${r.duracion_s}s): ${r.obtenido}`);
+  if (VER) {
+    // Mostrar el resultado en el navegador unos segundos para que se alcance a leer
+    const ok = r.estado === 'Aprobado';
+    panel = { titulo: `${ok ? '✅' : '❌'} ${id} ${ok ? 'APROBADO' : 'FALLIDO'} · ${nombreCaso}`, detalle: r.obtenido,
+      fondo: ok ? '#1E6B43' : '#8E1B1B', borde: ok ? '#7DDFA6' : '#F5A3A3' };
+    if (!paginas.size && admin && !admin.isClosed()) paginas.add(admin);
+    await pintarTodas();
+    await new Promise(res => setTimeout(res, 5000));
+  }
 }
 
 /* ---------- estado compartido entre casos ---------- */
@@ -495,7 +590,13 @@ caso('CP20', async (r) => {
 ============================== */
 (async () => {
   // Edge reciente solo admite el modo sin ventana "nuevo"
-  browser = await chromium.launch({ executablePath: EDGE, headless: true });
+  // VER=1 muestra el navegador y va más despacio (para demostraciones en vivo)
+  // OCULTO=1 permite verificar el modo demostración sin abrir ventanas
+  browser = await chromium.launch({ executablePath: EDGE, headless: !VER || !!process.env.OCULTO, slowMo: VER ? PAUSA : 0, args: VER ? ['--start-maximized', ...(process.env.OCULTO ? [`--window-size=${process.env.OCULTO_ANCHO || 1366},768`] : [])] : [] });
+  if (VER) console.log(`
+🎬 MODO DEMOSTRACIÓN · casos ${SOLO.join(', ')} · ${PAUSA} ms entre acciones
+   Se abrirá una ventana de Microsoft Edge (si no la ves, búscala en la barra de tareas).
+`);
   const inicio = new Date();
   // Capturas adicionales para la descripción del sistema
   for (const c of casos) await ejecutar(c);
